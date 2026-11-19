@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 class UserDataExporter {
 
-	private static final List<String> USER_TABLES = List.of("devices", "consents", "watchlists");
+	private static final List<String> USER_TABLES = List.of("devices", "consents", "watchlists", "portfolio_txns", "portfolio_imports", "portfolio_versions");
 
 	private final JdbcClient jdbc;
 

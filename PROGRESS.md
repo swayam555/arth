@@ -13,4 +13,8 @@ Source of truth for scope: docs/PLAN.md. History: docs/CHANGELOG.md.
 - Tests: api 17, market 35, feed-sim 8, aggregator 7, gateway 13, mobile 67. `pnpm turbo run typecheck lint test` green.
 - Gotchas: Skia PathBuilder (immutable SkPath); no class-level @Validated on controllers; RNTL 14 renderHook/act are async; hoist useCandles deps in tests (inline → infinite reload/OOM).
 
-## Next: Phase 4 — Portfolio (see docs/PLAN.md)
+## Phase 4 (Portfolio) — DONE (committed); emulator UI unverified
+- Tests: api 40, mobile 76, rest unchanged. Samples in samples/ (Zerodha tradebook + custom CSV).
+- Units: pct fields are percents (4dp); weight/xirr are fractions; xirr absent with <2 flows.
+
+## Next: Phase 5 — AI Copilot (see docs/PLAN.md)

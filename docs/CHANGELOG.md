@@ -77,3 +77,38 @@
 - The offline-reopen path (cache renders when the network fails) is verified by `useCandles.test.tsx` against the real SQLite store logic on `node:sqlite`, not on a device.
 
 **Not yet verified:** pan/zoom across 10k candles at ≥55 FPS on the emulator, and live depth on a device. The host was at 1.2 GB of free disk and about 1 GB of free RAM, with Docker stopped. The Android build outputs were deleted to free disk space, so an APK rebuild did not fit. The backfill run time against Postgres was not measured, for the same reason. These go into `docs/perf/REPORT.md` when measured.
+
+## Phase 4 — Portfolio (2026-11-19)
+
+**Added**
+- api `portfolio` package and the `V5__portfolio.sql` migration (transactions, import batches, holdings view inputs):
+  - **Ledger:** weighted-average-cost lots, realised P&L on sells, and oversell, future-date and unknown-symbol rejection. Each user has a transaction cap (`txn_limit`).
+  - **XIRR:** Newton's method with a bisection fallback. Current value counts as a terminal inflow. The field is omitted when there are fewer than two cash flows.
+  - **Endpoints:**
+    - `GET /v1/portfolio` returns holdings, allocation by sector, mcap and asset class, movers, and XIRR.
+    - `GET /v1/portfolio/history?days` reprices daily from `candles_1d`, falling back to prev_close.
+    - Transaction CRUD.
+  - **CSV import:** auto-detects the Zerodha tradebook layout and accepts a manual column mapping (DD/MM/YYYY and ISO dates). It supports a dry-run preview and a duplicate-file guard (SHA-256 → `duplicate_import`).
+  - **CAS PDF import (pdfbox 3.0.8):** CDSL, NSDL and CAMS layouts, with password-protected files (`cas_password`). PAN and email are masked in the report and never stored.
+  - **Kafka and DPDP:** `portfolio.updated` events go to Kafka. Transactions and imports are included in the DPDP data export and deleted on account delete.
+- Mobile Portfolio tab:
+  - **Live repricing:** holdings are repriced from streaming ticks (`livePortfolio`), which recomputes value, day change, P&L, weights, allocation and movers on every tick.
+  - **Charts:** a Skia allocation donut (sector, mcap and asset class), and a value-vs-invested history chart (30, 90 or 365 days).
+  - **Screens:** a holdings list linking to the instrument chart, a transaction list and editor (validated, with server errors shown inline), and an import screen. Import offers CSV with a mapping editor and automatic preview, or a CAS PDF with a password, followed by a preview report and commit.
+  - SEBI disclaimer, and English and Hindi strings.
+- `samples/`: a Zerodha-format tradebook and a custom-header CSV for trying the import.
+
+**Fixed during the phase**
+- The history query fell back to prev_close for symbols with no daily candle.
+- Asset-class expectations now use lowercase values.
+- A self-invoked `@Transactional` was replaced with `TransactionTemplate`, because the proxy was bypassed.
+- The Donut arc starts are computed with `reduce`, because the React Compiler lint rejects reassignment inside useMemo.
+
+**Verified**
+- Tests:
+  - api: 40/40 Testcontainers tests. New: `XirrTest`, `LedgerTest`, `CsvImportTest`, `CasParserTest` (synthetic encrypted CDSL/NSDL/CAMS PDFs) and `PortfolioApiTest` (multipart import end to end, duplicate guard, export and delete).
+  - mobile: 76/76 Jest tests. New: repricing, allocation, movers and the transaction form validation.
+  - `pnpm turbo run typecheck lint test` is green in all 8 packages.
+  - `expo export --platform android` bundles (5.3 MB Hermes bytecode).
+
+**Not yet verified:** the portfolio screens on an emulator or device, including the document picker with a real CAS PDF. Low RAM and disk on the host carry this over from earlier phases.

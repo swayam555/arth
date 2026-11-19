@@ -145,7 +145,7 @@ export interface paths {
         delete: operations["deleteMe"];
         options?: never;
         head?: never;
-        patch: operations["update"];
+        patch: operations["update_1"];
         trace?: never;
     };
     "/v1/me/consents": {
@@ -196,6 +196,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/portfolio/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/portfolio/import/cas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importCas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/portfolio/import/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importCsv"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/portfolio/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["transactions"];
+        put?: never;
+        post: operations["add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/portfolio/transactions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update"];
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/watchlists": {
         parameters: {
             query?: never;
@@ -238,7 +334,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch: operations["rename"];
@@ -264,6 +360,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Allocation: {
+            asset: components["schemas"]["Slice"][];
+            mcap: components["schemas"]["Slice"][];
+            sector: components["schemas"]["Slice"][];
+        };
         Candles: {
             candles: number[][];
             /** Format: int64 */
@@ -273,6 +374,70 @@ export interface components {
         Detail: {
             instrument: components["schemas"]["Instrument"];
             quote?: components["schemas"]["Quote"];
+        };
+        Draft: {
+            price: number;
+            qty: number;
+            /** @enum {string} */
+            side: "BUY" | "SELL";
+            symbol: string;
+            /** Format: date */
+            tradeDate: string;
+        };
+        History: {
+            /**
+             * Format: double
+             * @description Share of symbol-days priced from a trade instead of a daily close
+             */
+            estimatedShare: number;
+            points: components["schemas"]["Point"][];
+        };
+        Holding: {
+            assetClass: string;
+            avgCost: number;
+            dayChange: number;
+            /** Format: double */
+            dayChangePct: number;
+            invested: number;
+            /** @description False when no live quote was available and prevClose was used */
+            live: boolean;
+            ltp: number;
+            mcapBucket: string;
+            name: string;
+            pnl: number;
+            /** Format: double */
+            pnlPct: number;
+            prevClose: number;
+            qty: number;
+            sector: string;
+            symbol: string;
+            value: number;
+            /** Format: double */
+            weight: number;
+        };
+        ImportReport: {
+            /** Format: int32 */
+            accepted: number;
+            committed: boolean;
+            /** @description Masked email read from the statement */
+            email?: string;
+            headers: string[];
+            /** Format: uuid */
+            importId?: string;
+            /** @enum {string} */
+            kind: "csv" | "cas";
+            mapping: {
+                [key: string]: string;
+            };
+            /** @description Masked PAN read from the statement */
+            pan?: string;
+            preview: components["schemas"]["Draft"][];
+            /** @enum {string} */
+            provider?: "CDSL" | "NSDL" | "CAMS";
+            rejected: components["schemas"]["Issue"][];
+            /** Format: date */
+            statementDate?: string;
+            warnings: string[];
         };
         Instrument: {
             /** @enum {string} */
@@ -289,6 +454,12 @@ export interface components {
             sector: string;
             symbol: string;
             tickSize: number;
+        };
+        Issue: {
+            field: string;
+            message: string;
+            /** Format: int32 */
+            row: number;
         };
         Item: {
             name: string;
@@ -326,6 +497,12 @@ export interface components {
             items: components["schemas"]["Instrument"][];
             nextCursor?: string;
         };
+        Point: {
+            /** Format: date */
+            date: string;
+            invested: number;
+            value: number;
+        };
         Quote: {
             high: number;
             low: number;
@@ -362,11 +539,63 @@ export interface components {
             name?: string;
             phone: string;
         };
+        Slice: {
+            key: string;
+            value: number;
+            /** Format: double */
+            weight: number;
+        };
+        Summary: {
+            allocation: components["schemas"]["Allocation"];
+            dayChange: number;
+            /** Format: double */
+            dayChangePct: number;
+            gainers: components["schemas"]["Holding"][];
+            holdings: components["schemas"]["Holding"][];
+            invested: number;
+            losers: components["schemas"]["Holding"][];
+            pnl: number;
+            /** Format: double */
+            pnlPct: number;
+            realized: number;
+            /** Format: int32 */
+            txnCount: number;
+            value: number;
+            /** Format: int64 */
+            version: number;
+            /**
+             * Format: double
+             * @description Annualised money-weighted return; absent with fewer than two cash flows
+             */
+            xirr?: number;
+        };
         TokenPair: {
             accessToken: string;
             /** Format: int64 */
             expiresIn: number;
             refreshToken: string;
+        };
+        Txn: {
+            /** Format: uuid */
+            id: string;
+            price: number;
+            qty: number;
+            /** @enum {string} */
+            side: "BUY" | "SELL";
+            /** @enum {string} */
+            source: "manual" | "csv" | "cas";
+            symbol: string;
+            /** Format: date */
+            tradeDate: string;
+        };
+        TxnBody: {
+            price: number;
+            qty: number;
+            /** @enum {string} */
+            side: "BUY" | "SELL";
+            symbol: string;
+            /** Format: date */
+            tradeDate: string;
         };
         UpdateMe: {
             locale?: string;
@@ -612,7 +841,7 @@ export interface operations {
             };
         };
     };
-    update: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -730,6 +959,199 @@ export interface operations {
             };
         };
     };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Summary"];
+                };
+            };
+        };
+    };
+    history: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["History"];
+                };
+            };
+        };
+    };
+    importCas: {
+        parameters: {
+            query?: {
+                password?: string;
+                dryRun?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ImportReport"];
+                };
+            };
+        };
+    };
+    importCsv: {
+        parameters: {
+            query?: {
+                /** @description JSON object of field → CSV header, fields: symbol, side, qty, price, date */
+                mapping?: string;
+                dryRun?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ImportReport"];
+                };
+            };
+        };
+    };
+    transactions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Txn"][];
+                };
+            };
+        };
+    };
+    add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TxnBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Txn"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TxnBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Txn"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list: {
         parameters: {
             query?: never;
@@ -798,7 +1220,7 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;

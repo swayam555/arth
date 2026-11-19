@@ -31,6 +31,7 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("com.google.protobuf:protobuf-java:4.36.2")
+	implementation("org.apache.pdfbox:pdfbox:3.0.8")
 	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")

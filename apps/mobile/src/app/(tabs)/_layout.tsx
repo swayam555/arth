@@ -13,6 +13,10 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>{t("tabs.markets")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="chart.line.uptrend.xyaxis" md="show_chart" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="portfolio">
+        <NativeTabs.Trigger.Label>{t("tabs.portfolio")}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="chart.pie" md="pie_chart" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>{t("tabs.settings")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="gearshape" md="settings" />
