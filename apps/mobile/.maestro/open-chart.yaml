@@ -1,0 +1,29 @@
+appId: in.arth.app
+name: Open an instrument chart and switch timeframe
+tags: [smoke]
+---
+- launchApp
+- runFlow: subflows/sign-in.yaml
+- scrollUntilVisible:
+    element:
+      id: quote-INFY
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: quote-INFY
+- extendedWaitUntil:
+    visible:
+      id: candle-chart
+    timeout: 15000
+- assertVisible:
+    id: instrument-ltp
+- tapOn:
+    id: ov-sma20
+- tapOn:
+    id: tf-1d
+- assertVisible:
+    id: candle-chart
+- tapOn:
+    id: instrument-back
+- assertVisible:
+    id: watchlist

@@ -12,8 +12,25 @@ export function loadEnv<T extends z.ZodType>(schema: T, source: NodeJS.ProcessEn
   return parsed.data;
 }
 
-export function createLogger(service: string): Logger {
-  return pino({ name: service, level: process.env.LOG_LEVEL ?? "info", base: { service } });
+/** `onError` receives the `err` of every error/fatal log line, which is how services report to Sentry. */
+export function createLogger(service: string, onError?: (err: unknown, tags: Record<string, string>) => void): Logger {
+  return pino({
+    name: service,
+    level: process.env.LOG_LEVEL ?? "info",
+    base: { service },
+    hooks: onError
+      ? {
+          logMethod(args, method, level) {
+            const first = args[0] as unknown;
+            if (level >= 50 && first && typeof first === "object" && "err" in first) {
+              const msg = args.find((a, i) => i > 0 && typeof a === "string");
+              onError((first as { err: unknown }).err, typeof msg === "string" ? { log: msg } : {});
+            }
+            method.apply(this, args);
+          },
+        }
+      : undefined,
+  });
 }
 
 export function createRegistry(service: string): Registry {

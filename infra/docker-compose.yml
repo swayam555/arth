@@ -3,6 +3,11 @@ name: arth
 x-restart: &restart
   restart: unless-stopped
 
+x-telemetry: &telemetry
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT:-}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-dev}
+
 services:
   postgres:
     <<: *restart
@@ -80,6 +85,10 @@ services:
       INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET:-dev-only-internal-secret-change-me-dev-only-x}
       OTP_FIXED_CODE: ${OTP_FIXED_CODE:-}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k
+      OTEL_EXPORT: ${OTEL_EXPORT:-false}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_ENDPOINT:-http://jaeger:4318}/v1/traces
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-dev}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -103,6 +112,7 @@ services:
     environment:
       KAFKA_BROKERS: kafka:9092
       TICK_RATE: ${TICK_RATE:-2500}
+      <<: *telemetry
     depends_on:
       kafka: { condition: service_healthy }
     mem_limit: 160m
@@ -131,6 +141,7 @@ services:
       KAFKA_BROKERS: kafka:9092
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgres://arth:arth@postgres:5432/arth
+      <<: *telemetry
     depends_on:
       kafka: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -150,6 +161,7 @@ services:
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgres://arth:arth@postgres:5432/arth
       COOLDOWN_SEC: ${ALERT_COOLDOWN_SEC:-900}
+      <<: *telemetry
     depends_on:
       kafka: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -169,6 +181,7 @@ services:
       DATABASE_URL: postgres://arth:arth@postgres:5432/arth
       PUSH_SENDER: ${PUSH_SENDER:-log}
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      <<: *telemetry
     depends_on:
       kafka: { condition: service_healthy }
       api: { condition: service_healthy }
@@ -185,6 +198,7 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+      <<: *telemetry
     ports: ["7090:7090"]
     depends_on:
       redis: { condition: service_healthy }
@@ -214,6 +228,7 @@ services:
       NEWS_FEED_URLS: ${NEWS_FEED_URLS:-}
       KAFKA_BROKERS: kafka:9092
       DIGEST_SCHEDULER: ${DIGEST_SCHEDULER:-on}
+      <<: *telemetry
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -253,7 +268,44 @@ services:
       api: { condition: service_started }
     mem_limit: 64m
 
+  prometheus:
+    <<: *restart
+    image: prom/prometheus:v3.16.0
+    profiles: [obs]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=2d", "--storage.tsdb.path=/prometheus"]
+    ports: ["7909:9090"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    mem_limit: 256m
+
+  grafana:
+    <<: *restart
+    image: grafana/grafana:13.2.6
+    profiles: [obs]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-arth}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/arth.json
+    ports: ["7300:3000"]
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+    mem_limit: 192m
+
+  jaeger:
+    <<: *restart
+    image: jaegertracing/jaeger:2.23.0
+    profiles: [obs]
+    ports: ["7686:16686", "4317:4317", "4318:4318"]
+    mem_limit: 256m
+
 volumes:
   pgdata:
   kafkadata:
   certs:
+  promdata:

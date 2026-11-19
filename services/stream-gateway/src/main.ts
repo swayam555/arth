@@ -1,5 +1,7 @@
 import { buildUniverse, tickChannel, type RedisTick } from "@arth/market";
 import { createLogger, createRegistry, loadEnv, onShutdown, verifyHs256 } from "@arth/svc";
+import { initTelemetry } from "@arth/svc/telemetry";
+import { SpanKind, type Span } from "@opentelemetry/api";
 import { Redis } from "ioredis";
 import { unpack } from "msgpackr";
 import { Counter, Gauge, Histogram } from "prom-client";
@@ -24,7 +26,8 @@ const env = loadEnv(
   }),
 );
 
-const log = createLogger("stream-gateway");
+const telemetry = await initTelemetry("stream-gateway");
+const log = createLogger("stream-gateway", telemetry.capture);
 const registry = createRegistry("stream-gateway");
 const connections = new Gauge({ name: "arth_gw_connections", help: "Open WebSocket sessions", registers: [registry] });
 const watched = new Gauge({ name: "arth_gw_watched_symbols", help: "Symbols with at least one subscriber", registers: [registry] });
@@ -81,8 +84,12 @@ function bearer(req: UWS.HttpRequest): string | null {
   return null;
 }
 
-function reject(res: UWS.HttpResponse, status: string, reason: string): void {
+function reject(res: UWS.HttpResponse, status: string, reason: string, span?: Span): void {
   rejected.inc({ reason });
+  if (span) {
+    span.setAttributes({ "arth.ws.outcome": "rejected", "arth.ws.reason": reason });
+    span.end();
+  }
   res.cork(() => res.writeStatus(status).end(reason));
 }
 
@@ -99,15 +106,18 @@ const app = uWS
     maxBackpressure: 1024 * 1024,
     upgrade: (res, req, context) => {
       if (draining) return reject(res, "503 Service Unavailable", "draining");
+      const span = telemetry.tracer.startSpan("ws.upgrade", { kind: SpanKind.SERVER, attributes: { "url.path": "/ws" } });
       const token = bearer(req);
-      if (!token) return reject(res, "401 Unauthorized", "missing_token");
+      if (!token) return reject(res, "401 Unauthorized", "missing_token", span);
       let userId: string;
       try {
         userId = verifyHs256(token, env.JWT_SECRET, env.JWT_ISSUER).sub;
       } catch {
-        return reject(res, "401 Unauthorized", "invalid_token");
+        return reject(res, "401 Unauthorized", "invalid_token", span);
       }
-      if ((perUser.get(userId) ?? 0) >= env.MAX_CONNECTIONS_PER_USER) return reject(res, "429 Too Many Requests", "too_many_connections");
+      if ((perUser.get(userId) ?? 0) >= env.MAX_CONNECTIONS_PER_USER) return reject(res, "429 Too Many Requests", "too_many_connections", span);
+      span.setAttribute("arth.ws.outcome", "accepted");
+      span.end();
       const protocol = req.getHeader("sec-websocket-protocol").includes("arth.v1") ? "arth.v1" : "";
       res.upgrade<SocketData>(
         { userId },
@@ -189,4 +199,5 @@ onShutdown(log, async () => {
   if (listenSocket) uWS.us_listen_socket_close(listenSocket);
   subscriber.disconnect();
   redis.disconnect();
+  await telemetry.shutdown();
 });

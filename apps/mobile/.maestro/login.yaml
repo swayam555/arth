@@ -1,0 +1,12 @@
+appId: in.arth.app
+name: Login with OTP
+tags: [smoke]
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: phone-input
+- runFlow: subflows/sign-in.yaml
+- assertVisible: "Markets"
+- assertVisible:
+    id: watchlist

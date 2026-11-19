@@ -1,6 +1,7 @@
 import { Consumer, Producer, stringDeserializer, stringSerializer } from "@platformatic/kafka";
 import { CHANNEL_ALERTS_CHANGED, TOPIC_ALERTS_FIRED, TOPIC_TICKS_RAW, TOPIC_USER_DELETED } from "@arth/market";
 import { createLogger, createRegistry, loadEnv, onShutdown, startOpsServer } from "@arth/svc";
+import { initTelemetry, inSpan } from "@arth/svc/telemetry";
 import { ensureTopics } from "@arth/svc/kafka";
 import { Redis } from "ioredis";
 import postgres from "postgres";
@@ -27,7 +28,8 @@ const env = loadEnv(
   }),
 );
 
-const log = createLogger("alert-engine");
+const telemetry = await initTelemetry("alert-engine");
+const log = createLogger("alert-engine", telemetry.capture);
 const registry = createRegistry("alert-engine");
 const ticks = new Counter({ name: "arth_alerts_ticks_total", help: "Ticks evaluated", registers: [registry] });
 const firedC = new Counter({ name: "arth_alerts_fired_total", help: "Alerts fired", labelNames: ["kind"], registers: [registry] });
@@ -124,7 +126,11 @@ async function evaluate(): Promise<void> {
   const end = evalSeconds.startTimer();
   const before = engine.stats.suppressed;
   try {
-    const fired = await engine.process(batch);
+    const fired = await inSpan(telemetry.tracer, "alerts.evaluate", { "arth.ticks": batch.length }, async (span) => {
+      const out = await engine.process(batch);
+      span.setAttribute("arth.alerts.fired", out.length);
+      return out;
+    });
     ticks.inc(batch.length);
     const now = Date.now();
     for (const f of fired) {
@@ -157,4 +163,5 @@ onShutdown(log, async () => {
   await sql.end({ timeout: 5 });
   sub.disconnect();
   redis.disconnect();
+  await telemetry.shutdown();
 });

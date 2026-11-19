@@ -217,3 +217,58 @@
 - Push delivery and taps on the emulator need an EAS `projectId` in `extra.eas.projectId`. Until one is set, `registerForPush` returns `unavailable`.
 - `assetlinks.json` uses the debug keystore SHA-256 and must be replaced for release. The iOS `apple-app-site-association` file was not added because it needs an Apple Team ID.
 - NSE holidays are not modelled (a holiday looks like a flat session). The digest scheduler assumes a single replica.
+
+## Phase 7 — Hardening (2026-11-20)
+
+**Added**
+- **Offline and slow networks (mobile)**
+  - `features/network` decides online state. Unknown reachability counts as online; only an explicit `false` is offline.
+  - The flush rate follows the radio: 2 s on 2G, 1 s on 3G, and the default rate otherwise. The socket sends a new rate only when it changes, and sends it again after reconnecting.
+  - React Query pauses while offline, refetches on reconnect, and treats returning to the foreground as focus.
+- **Crash reporting (mobile)**
+  - Sentry (`@sentry/react-native` 8.36) runs only when the user is signed in and has granted the `analytics` consent. It shuts down when that consent is withdrawn.
+  - A PII scrubber removes the user, the request, extra fields, frame variables and network breadcrumbs, and masks emails, PAN, Aadhaar, phone numbers and JWTs.
+  - Screenshots, the view hierarchy and default PII are turned off.
+- **Node services**
+  - `@arth/svc/telemetry` adds an OTel tracer, with OTLP export only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and Sentry with the same scrubber.
+  - Error-level log lines that carry `err` are forwarded to Sentry.
+  - The stream gateway wraps upgrade/auth and snapshot work in spans. The other services trace their batch handlers.
+- **ai**
+  - `telemetry.py` adds Sentry with a scrubber, plus OpenTelemetry FastAPI instrumentation.
+  - Agent turns and tool calls are spans.
+- **api**
+  - Spring Boot OpenTelemetry starter (export is off by default), Sentry for Spring Boot 4 and Micrometer Prometheus at `/actuator/prometheus`.
+  - `http.server.requests` has histograms and SLO buckets from 50 ms to 1 s.
+- **Observability stack** (compose profile `obs`)
+  - Prometheus 3.16, Grafana 13.2 and Jaeger 2.23.
+  - A provisioned 31-panel "Arth overview" dashboard, committed as JSON and produced by `gen_dashboard.py`.
+  - A shared `x-telemetry` env anchor carries the telemetry settings to every service.
+- **Load tests:** k6 `infra/load/rest.js` (weighted REST mix with per-endpoint p95 thresholds) and `infra/load/ws.js` (1,000+ gateway sockets, first-frame and frame-gap thresholds, abnormal-close count).
+- **Maestro flows:** login, add-to-watchlist, open-chart and ask-copilot, plus a shared sign-in subflow.
+- **Tests and docs**
+  - New Jest suites: session store, chat renderer (MessageView, Markdown, Blocks), crash reporting and scrubber, network policy, and four reconnect edge cases in `streamClient`.
+  - Per-file coverage thresholds (75% statements, 60% branches, 50% functions, 80% lines) on the stores, socket, decoder and chat renderer.
+  - `docs/OBSERVABILITY.md` explains how to run the stack and the load tests.
+
+**Fixed during the phase**
+- Sign-out and wipe loaded push and copilot modules through dynamic `import()`, and their `.catch` swallowed failures. Under Jest, the push token was never unregistered and the local copilot history was never wiped. The new session tests caught this, and both are now static imports (there was no import cycle).
+- `NetSnapshot` didn't match `NetInfoState` (TS2345). It now picks `details` and narrows on `cellularGeneration`.
+- The dashboard's token panel grouped by a non-existent `kind` label. The metric label is `dir`.
+- An unawaited RNTL 14 `fireEvent` caused overlapping `act()` calls and broke later tests in the same file.
+
+**Verified**
+- mobile: Jest 147/147 in 20 suites, with every coverage threshold met. Measured coverage: decoder 100%; MessageView, Markdown and markdown 100%; sse 98%; historyStore 94%; streamClient 94%; reducer 92%; session 92%; store 82%; Blocks 81%; tickStore 78% (statements). `tsc` is clean.
+- `pnpm turbo run typecheck lint test`: 22/22 green.
+- ai: pytest 79 passed; ruff check, ruff format and mypy clean.
+- api: `compileJava compileTestJava` is clean, and the unit tests pass (CasParser, CsvImport, Ledger, Xirr).
+- `docker compose config -q` is valid with the obs profile, and the dashboard JSON parses.
+
+**Not yet verified**
+- None of the runtime checks have run. Docker is down (Docker.raw disk full, ~1.2 GB free on the host), k6 and Maestro are not installed, and there was no room for an emulator. That leaves:
+  - the k6 REST and WS runs, so `docs/perf/BACKEND.md` has no Phase 7 numbers yet;
+  - the Maestro flows on an emulator;
+  - the 15-minute memory-growth (≤10%) check;
+  - the Grafana and Jaeger UIs, and live OTLP/Sentry export;
+  - the api's `/actuator/prometheus` output;
+  - mobile Sentry on a device.
+- pnpm ignored the `@sentry/cli` postinstall build script, so source-map upload for release builds is not set up yet.

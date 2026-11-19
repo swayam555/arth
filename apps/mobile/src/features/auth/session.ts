@@ -1,3 +1,5 @@
+import { useCopilot } from "@/features/copilot/store";
+import { unregisterPush } from "@/features/push/token";
 import type { Schemas } from "@arth/api-client";
 import { create } from "zustand";
 import { api, refreshAccessToken, setSessionExpiredHandler } from "@/data/api";
@@ -70,7 +72,7 @@ export const useSession = create<SessionState>((set, get) => ({
 
   signOut: async () => {
     const refreshToken = await tokens.refresh();
-    await import("@/features/push/token").then((m) => m.unregisterPush()).catch(() => undefined);
+    await unregisterPush().catch(() => undefined);
     if (refreshToken) {
       await api.POST("/v1/auth/logout", { body: { refreshToken } }).catch(() => undefined);
     }
@@ -82,7 +84,7 @@ export const useSession = create<SessionState>((set, get) => ({
     prefs.remove(CACHED_USER);
     prefs.remove("push.token");
     await candleCache.clear().catch(() => undefined);
-    await import("@/features/copilot/store").then((m) => m.useCopilot.getState().wipe(false)).catch(() => undefined);
+    await Promise.resolve(useCopilot.getState().wipe(false)).catch(() => undefined);
     set({ status: "signedOut", user: null });
   },
 }));

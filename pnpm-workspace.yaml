@@ -15,3 +15,11 @@ allowBuilds:
   esbuild: true
   '@bufbuild/buf': true
   msgpackr-extract: true
+
+minimumReleaseAgeExclude:
+  - '@sentry/bundler-plugins@11.15.0'
+  - '@sentry/core@11.15.0'
+  - '@sentry/node@11.15.0'
+  - '@sentry/opentelemetry@11.15.0'
+  - '@sentry/server-runtime-injection@11.15.0'
+  - '@sentry/server-utils@11.15.0'

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from opentelemetry import trace
+
 from . import grounding, guard, metrics
 from .api_client import ApiError, PortfolioApi
 from .cache import AnswerCache
@@ -25,6 +27,7 @@ Event = tuple[str, dict[str, Any]]
 CONSENT_PURPOSE = "ai_copilot"
 HISTORY_MESSAGES = 10
 STREAM_CHUNK = 48
+_tracer = trace.get_tracer("arth_ai.agent")
 _CITED = re.compile(r"\[(\d+)\]")
 
 SYSTEM = """You are Arth's portfolio copilot for Indian retail investors. Today is {today}.
@@ -84,6 +87,7 @@ class Agent:
 
     async def run(self, p: Prepared) -> AsyncIterator[Event]:
         started = time.perf_counter()
+        span = _tracer.start_span("copilot.turn", attributes={"arth.provider": self.provider.name})
         yield "meta", {"sessionId": str(p.session), "provider": self.provider.name, "piiMasked": sorted(set(p.pii))}
         outcome = "error"
         try:
@@ -98,7 +102,7 @@ class Agent:
                 yield "done", self._done(Usage(), grounded=True, cached=False, refused=True)
                 return
 
-            ctx = TurnContext(p.user, self.api, self.retriever)
+            ctx = TurnContext(p.user, self.api, self.retriever, trace_parent=trace.set_span_in_context(span))
             portfolio = await ctx.portfolio()
             key = self._cache_key(p, str(portfolio.get("version", "")), await self.retriever.version())
             hit = None if p.history else await self.cache.get(key)
@@ -197,6 +201,8 @@ class Agent:
         except ProviderError as e:
             yield "error", {"code": "llm_unavailable", "message": str(e)[:200]}
         finally:
+            span.set_attribute("arth.outcome", outcome)
+            span.end()
             metrics.TURNS.labels(outcome=outcome).inc()
             metrics.TURN_SECONDS.observe(time.perf_counter() - started)
 

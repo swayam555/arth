@@ -9,10 +9,22 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { queryClient } from "@/data/queryClient";
 import { LockOverlay } from "@/features/auth/LockOverlay";
 import { useSession } from "@/features/auth/session";
+import { wireQueryManagers } from "@/features/network/network";
 import { usePush } from "@/features/push/register";
+import { initCrashReporting, stopCrashReporting } from "@/features/telemetry/crash";
 import { useTheme } from "@/ui/theme";
 
 void SplashScreen.preventAutoHideAsync();
+wireQueryManagers();
+
+function CrashBridge() {
+  const allowed = useSession((s) => s.status === "signedIn" && s.user?.consents?.analytics === true);
+  useEffect(() => {
+    if (allowed) initCrashReporting();
+    else void stopCrashReporting();
+  }, [allowed]);
+  return null;
+}
 
 function PushBridge() {
   const allowed = useSession((s) => s.status === "signedIn" && s.user?.consents?.push === true);
@@ -60,6 +72,7 @@ export default function RootLayout() {
           </Stack>
           {status === "signedIn" ? <LockOverlay /> : null}
           <PushBridge />
+          <CrashBridge />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

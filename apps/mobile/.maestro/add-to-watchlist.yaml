@@ -1,0 +1,23 @@
+appId: in.arth.app
+name: Add a stock to the watchlist
+tags: [smoke]
+---
+- launchApp
+- runFlow: subflows/sign-in.yaml
+- tapOn:
+    id: watchlist-add
+- tapOn:
+    id: search-input
+- inputText: "INFY"
+- extendedWaitUntil:
+    visible:
+      id: toggle-INFY
+    timeout: 10000
+- tapOn:
+    id: toggle-INFY
+- tapOn:
+    id: search-done
+- extendedWaitUntil:
+    visible:
+      id: quote-INFY
+    timeout: 10000

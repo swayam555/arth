@@ -254,6 +254,61 @@ describe("StreamClient", () => {
     expect(sockets).toHaveLength(2);
   });
 
+  it("does not reconnect when a pause lands during backoff", async () => {
+    const { client, sockets, last, advance } = setup();
+    client.start();
+    await flush();
+    last().open();
+    last().drop();
+    expect(client.status).toBe("reconnecting");
+    client.pause();
+    await advance(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(client.status).toBe("paused");
+  });
+
+  it("skips the remaining backoff when the network returns while reconnecting", async () => {
+    const { client, sockets, last } = setup();
+    client.start();
+    await flush();
+    last().open();
+    last().drop();
+    expect(client.status).toBe("reconnecting");
+    client.setOnline(true);
+    await flush();
+    expect(sockets).toHaveLength(2);
+  });
+
+  it("going offline mid-handshake closes the pending socket and stays down", async () => {
+    const { client, sockets, advance } = setup();
+    client.start();
+    await flush();
+    expect(sockets).toHaveLength(1);
+    client.setOnline(false);
+    expect(client.status).toBe("offline");
+    sockets[0]!.drop();
+    await advance(60_000);
+    expect(sockets).toHaveLength(1);
+  });
+
+  it("re-sends a slow-radio flush rate after reconnecting and not the default", async () => {
+    const { client, last, advance } = setup();
+    client.start();
+    await flush();
+    last().open();
+    client.setRate(2_000);
+    expect(last().ops("rate")).toEqual([{ op: "rate", ms: 2_000 }]);
+    last().drop();
+    await advance(375);
+    last().open();
+    expect(last().ops("rate")).toEqual([{ op: "rate", ms: 2_000 }]);
+    client.setRate(250);
+    last().drop();
+    await advance(375);
+    last().open();
+    expect(last().ops("rate")).toEqual([]);
+  });
+
   it("closes a silent socket as stale and pings a healthy one", async () => {
     const { client, sockets, last, advance } = setup();
     client.start();

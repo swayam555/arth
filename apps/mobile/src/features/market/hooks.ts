@@ -2,9 +2,10 @@ import NetInfo from "@react-native-community/netinfo";
 import { useCallback, useEffect, useRef } from "react";
 import type { ViewToken } from "@shopify/flash-list";
 import { AppState } from "react-native";
+import { flushRateFor, isOnline } from "@/features/network/network";
 import { stream } from "./stream";
 
-/** Owns the socket for the signed-in shell: connects on mount, sleeps in background, follows connectivity. */
+/** Owns the socket for the signed-in shell: connects on mount, sleeps in background, follows connectivity and radio speed. */
 export function useMarketStream(): void {
   useEffect(() => {
     stream.start();
@@ -12,7 +13,15 @@ export function useMarketStream(): void {
       if (state === "active") stream.start();
       else if (state === "background") stream.pause();
     });
-    const net = NetInfo.addEventListener((s) => stream.setOnline(s.isConnected !== false));
+    let rate: number | null = null;
+    const net = NetInfo.addEventListener((s) => {
+      stream.setOnline(isOnline(s));
+      const next = flushRateFor(s);
+      if (next !== rate) {
+        rate = next;
+        stream.setRate(next);
+      }
+    });
     return () => {
       app.remove();
       net();

@@ -2,6 +2,7 @@ import { Consumer, Producer, stringDeserializer, stringSerializer } from "@platf
 import { TOPIC_ALERTS_FIRED, TOPIC_DIGEST_READY, TOPIC_NOTIFICATIONS_DLQ } from "@arth/market";
 import { AlertFiredSchema, create, DigestReadySchema, FailedNotificationSchema, fromBinary, toBinary } from "@arth/proto";
 import { createLogger, createRegistry, loadEnv, onShutdown, startOpsServer } from "@arth/svc";
+import { initTelemetry, inSpan } from "@arth/svc/telemetry";
 import { ensureTopics } from "@arth/svc/kafka";
 import postgres from "postgres";
 import { Counter, Histogram } from "prom-client";
@@ -29,7 +30,8 @@ const env = loadEnv(
   }),
 );
 
-const log = createLogger("notifier");
+const telemetry = await initTelemetry("notifier");
+const log = createLogger("notifier", telemetry.capture);
 const registry = createRegistry("notifier");
 const outcomes = new Counter({ name: "arth_notify_total", help: "Notifications by kind and outcome", labelNames: ["kind", "outcome"], registers: [registry] });
 const removedTokens = new Counter({ name: "arth_notify_tokens_removed_total", help: "Device tokens dropped as unregistered", registers: [registry] });
@@ -101,8 +103,11 @@ stream.on("data", (msg) => {
   if (inflight >= env.CONCURRENCY) stream.pause();
   const end = deliverSeconds.startTimer();
   const kind = msg.topic === TOPIC_ALERTS_FIRED ? "alert" : "digest";
-  toNotification(msg.topic, msg.value)
-    .then((n) => notifier.deliver(n))
+  inSpan(telemetry.tracer, "notify.deliver", { "arth.notify.kind": kind }, async (span) => {
+    const r = await notifier.deliver(await toNotification(msg.topic, msg.value));
+    span.setAttribute("arth.notify.outcome", r.outcome);
+    return r;
+  })
     .then(
       (r) => {
         outcomes.inc({ kind, outcome: r.outcome });
@@ -129,4 +134,5 @@ onShutdown(log, async () => {
   await consumer.close();
   await producer.close();
   await sql.end({ timeout: 5 });
+  await telemetry.shutdown();
 });

@@ -1,0 +1,33 @@
+# Signs in with the dev OTP (start the api with OTP_FIXED_CODE=123456) and accepts the default consents.
+appId: in.arth.app
+---
+- runFlow:
+    when:
+      visible:
+        id: phone-input
+    commands:
+      - tapOn:
+          id: phone-input
+      - inputText: ${PHONE || "9876543210"}
+      - tapOn:
+          id: send-code
+      - extendedWaitUntil:
+          visible:
+            id: otp-input
+          timeout: 15000
+      - tapOn:
+          id: otp-input
+      - inputText: ${OTP || "123456"}
+      - tapOn:
+          id: verify
+- runFlow:
+    when:
+      visible:
+        id: consent-accept
+    commands:
+      - tapOn:
+          id: consent-accept
+- extendedWaitUntil:
+    visible:
+      id: stream-status
+    timeout: 20000

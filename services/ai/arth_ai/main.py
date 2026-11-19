@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 
-from . import metrics
+from . import metrics, telemetry
 from .agent import Agent, BudgetExceeded, ConsentRequired, Event
 from .api_client import ApiError, HttpPortfolioApi, PortfolioApi
 from .auth import AuthError, user_from_bearer
@@ -141,7 +141,9 @@ def create_app(deps: Deps | None = None) -> FastAPI:
                 t.cancel()
             await stack.aclose()
 
+    telemetry.init_sentry()
     app = FastAPI(title="Arth AI copilot", version="0.5.0", lifespan=lifespan)
+    telemetry.init_tracing(app)
 
     def sse(ev: Event) -> bytes:
         name, data = ev

@@ -1,6 +1,7 @@
 import { Producer, stringSerializer } from "@platformatic/kafka";
 import { TOPIC_CANDLES_1M, TOPIC_TICKS_RAW, isMarketOpen } from "@arth/market";
 import { createLogger, createRegistry, loadEnv, onShutdown, startOpsServer } from "@arth/svc";
+import { initTelemetry } from "@arth/svc/telemetry";
 import { ensureTopics } from "@arth/svc/kafka";
 import { Counter, Gauge, Histogram } from "prom-client";
 import { z } from "zod";
@@ -19,7 +20,8 @@ const env = loadEnv(
   }),
 );
 
-const log = createLogger("feed-simulator");
+const telemetry = await initTelemetry("feed-simulator");
+const log = createLogger("feed-simulator", telemetry.capture);
 const registry = createRegistry("feed-simulator");
 const produced = new Counter({ name: "arth_feed_ticks_total", help: "Ticks produced to Kafka", registers: [registry] });
 const sendSeconds = new Histogram({
@@ -54,6 +56,7 @@ startOpsServer(env.METRICS_PORT, registry, () => ready);
 onShutdown(log, async () => {
   running = false;
   await producer.close();
+  await telemetry.shutdown();
 });
 
 log.info({ rate: env.TICK_RATE, universe: feed.size, alwaysOpen: env.ALWAYS_OPEN }, "feed started");

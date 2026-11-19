@@ -1,6 +1,7 @@
 import { Consumer, Producer, stringDeserializer, stringSerializer } from "@platformatic/kafka";
 import { TOPIC_CANDLES_1M, TOPIC_TICKS_RAW } from "@arth/market";
 import { createLogger, createRegistry, loadEnv, onShutdown, startOpsServer } from "@arth/svc";
+import { initTelemetry, inSpan } from "@arth/svc/telemetry";
 import { ensureTopics } from "@arth/svc/kafka";
 import { Redis } from "ioredis";
 import postgres from "postgres";
@@ -21,7 +22,8 @@ const env = loadEnv(
   }),
 );
 
-const log = createLogger("tick-aggregator");
+const telemetry = await initTelemetry("tick-aggregator");
+const log = createLogger("tick-aggregator", telemetry.capture);
 const registry = createRegistry("tick-aggregator");
 const consumed = new Counter({ name: "arth_agg_ticks_total", help: "Ticks consumed", registers: [registry] });
 const dropped = new Counter({
@@ -107,9 +109,11 @@ async function flush(): Promise<void> {
     for (const t of latest) tickAge.observe(Math.max(0, now - t.tsMs) / 1_000);
     published.inc(latest.length);
     if (closed.length) {
-      await storeCandles(sql, closed);
-      await producer.send({
-        messages: closed.map((c) => ({ topic: TOPIC_CANDLES_1M, key: c.symbol, value: encodeCandle(c) })),
+      await inSpan(telemetry.tracer, "candles.close", { "arth.candles": closed.length }, async () => {
+        await storeCandles(sql, closed);
+        await producer.send({
+          messages: closed.map((c) => ({ topic: TOPIC_CANDLES_1M, key: c.symbol, value: encodeCandle(c) })),
+        });
       });
       candlesClosed.inc(closed.length);
     }
@@ -138,4 +142,5 @@ onShutdown(log, async () => {
   await producer.close();
   await sql.end({ timeout: 5 });
   redis.disconnect();
+  await telemetry.shutdown();
 });

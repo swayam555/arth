@@ -13,6 +13,10 @@
     "./kafka": {
       "types": "./dist/kafka.d.ts",
       "default": "./dist/kafka.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry.d.ts",
+      "default": "./dist/telemetry.js"
     }
   },
   "scripts": {
@@ -20,10 +24,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.301.2",
+    "@opentelemetry/resources": "3.1.1",
+    "@opentelemetry/sdk-trace-base": "2.12.1",
+    "@opentelemetry/sdk-trace-node": "2.12.1",
+    "@platformatic/kafka": "^2.17.0",
+    "@sentry/node": "11.15.0",
     "pino": "^10.4.0",
     "prom-client": "^15.1.3",
-    "zod": "^4.6.7",
-    "@platformatic/kafka": "^2.17.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

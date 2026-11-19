@@ -27,4 +27,9 @@ Source of truth for scope: docs/PLAN.md. History: docs/CHANGELOG.md.
 - To verify: compose realtime+ai stack → create alert → feed crosses → notifier log/Expo push → tap opens instrument; kill Expo creds → DLQ; digest at 15:45 IST once per user. Needs EAS projectId for real push. Regenerate openapi.json from springdoc.
 - Gotchas: RNTL 14 fireEvent is async (await it); React Query tests need gcTime: Infinity or Jest hangs.
 
-## Next: Phase 7 — Hardening (see docs/PLAN.md)
+## Phase 7 (Hardening) — DONE in code (committed); k6/Maestro/memory runs pending
+- Tests: mobile 147 (coverage thresholds in jest.config.js), ai 79, turbo 22/22, api unit tests. Runbook: docs/OBSERVABILITY.md.
+- To verify: compose core+realtime+ai+obs with OTEL_ENDPOINT=http://jaeger:4318 OTEL_EXPORT=true → Grafana :7300, Jaeger :7686; k6 rest/ws → record in docs/perf/BACKEND.md; Maestro on emulator; 15-min memory soak.
+- Gotcha: dynamic import() fails under Jest without --experimental-vm-modules, so use static imports.
+
+## Next: Phase 8 — Docs (README, docs/perf/REPORT.md, INTERVIEW_NOTES, RESUME_BULLETS)

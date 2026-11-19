@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from opentelemetry import trace
 from pydantic import ValidationError
 
 from . import blocks
@@ -68,6 +69,7 @@ class TurnContext:
     results: list[Any] = field(default_factory=list)
     blocks: list[Json] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
+    trace_parent: Any = None
 
     async def portfolio(self) -> Json:
         if self._portfolio is None:
@@ -453,12 +455,15 @@ SPECS: list[tuple[ToolSpec, Handler]] = [
     ),
 ]
 TOOLS = [s for s, _ in SPECS]
+_tracer = trace.get_tracer("arth_ai.tools")
 _HANDLERS = {s.name: h for s, h in SPECS}
 
 
 async def run_tool(ctx: TurnContext, block: Block, observe: Callable[[str, float], None] | None = None) -> Block:
     name, inp = block["name"], block.get("input") or {}
     started = time.perf_counter()
+    span = _tracer.start_span(f"tool {name}", context=ctx.trace_parent, attributes={"arth.tool.name": name})
+    content, is_error = "tool failed", True
     try:
         if "__invalid_json__" in inp:
             raise ToolInputError("tool input was not valid JSON; retry with valid arguments")
@@ -474,6 +479,8 @@ async def run_tool(ctx: TurnContext, block: Block, observe: Callable[[str, float
     except ApiError as e:
         content, is_error = f"portfolio service error {e.status}", True
     finally:
+        span.set_attribute("arth.tool.error", is_error)
+        span.end()
         if observe:
             observe(name, time.perf_counter() - started)
     return {"type": "tool_result", "tool_use_id": block["id"], "content": content, "is_error": is_error}

@@ -1,0 +1,31 @@
+appId: in.arth.app
+name: Ask the copilot a question and get a cited, disclaimed answer
+tags: [smoke]
+---
+- launchApp
+- runFlow: subflows/sign-in.yaml
+- tapOn: "Copilot"
+- runFlow:
+    when:
+      visible:
+        id: copilot-enable
+    commands:
+      - tapOn:
+          id: copilot-enable
+- extendedWaitUntil:
+    visible:
+      id: copilot-input
+    timeout: 10000
+- tapOn:
+    id: copilot-input
+- inputText: "What is XIRR?"
+- tapOn:
+    id: copilot-send
+- assertVisible:
+    id: msg-user
+- extendedWaitUntil:
+    visible:
+      id: msg-assistant-done
+    timeout: 45000
+- assertVisible:
+    id: disclaimer

@@ -42,6 +42,32 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: arth-api
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,400ms,1s
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLE:1.0}
+    export:
+      enabled: ${OTEL_EXPORT:false}
+  opentelemetry:
+    resource-attributes:
+      service.name: arth-api
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:dev}
+  send-default-pii: false
+  traces-sample-rate: 0.0
 
 logging:
   structured:
