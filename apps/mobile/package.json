@@ -40,6 +40,7 @@
     "expo-sqlite": "~58.0.18",
     "expo-status-bar": "~58.0.5",
     "expo-system-ui": "~58.0.7",
+    "expo-updates": "~58.0.22",
     "i18next": "^27.1.5",
     "openapi-fetch": "^0.17.0",
     "react": "19.3.0",

@@ -32,4 +32,9 @@ Source of truth for scope: docs/PLAN.md. History: docs/CHANGELOG.md.
 - To verify: compose core+realtime+ai+obs with OTEL_ENDPOINT=http://jaeger:4318 OTEL_EXPORT=true → Grafana :7300, Jaeger :7686; k6 rest/ws → record in docs/perf/BACKEND.md; Maestro on emulator; 15-min memory soak.
 - Gotcha: dynamic import() fails under Jest without --experimental-vm-modules, so use static imports.
 
-## Next: Phase 8 — Docs (README, docs/perf/REPORT.md, INTERVIEW_NOTES, RESUME_BULLETS)
+## Phase 8 (Publish-readiness) — DONE in docs/config (committed); release APK + cold start unmeasured
+- Added: icons (infra/brand/gen_icons.py), eas.json + expo-updates, docs/legal/PRIVACY_POLICY.md, docs/release/RELEASE.md, README.md, docs/perf/REPORT.md, INTERVIEW_NOTES, RESUME_BULLETS.
+- Rule: README/RESUME numbers must cite a REPORT.md row; add new measurements to REPORT first.
+- To verify (needs ~6 GB free disk + emulator): `cd apps/mobile && npx expo prebuild -p android && cd android && ./gradlew assembleRelease`, install the APK, `adb shell am start -W -n in.arth.app/.MainActivity` ×10 → record median TotalTime in REPORT.md; then `eas init` + `eas update:configure`.
+
+## Remaining (all phases): device/emulator runs, Docker-backed integration tests, k6, Maestro, memory soak, real LLM key

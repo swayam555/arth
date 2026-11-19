@@ -70,7 +70,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0B0F14",
-          "image": "./assets/icon.png",
+          "image": "./assets/splash-icon.png",
           "imageWidth": 120
         }
       ],
@@ -95,6 +95,13 @@
     },
     "extra": {
       "router": {}
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
