@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/instruments")
-@Validated
 class InstrumentController {
 
 	record Page(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Instrument> items, String nextCursor) {}

@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { api, refreshAccessToken, setSessionExpiredHandler } from "@/data/api";
 import { prefs } from "@/data/storage";
 import { tokens } from "./tokens";
+import { candleCache } from "@/features/chart/cache";
 
 export type Consents = Record<string, boolean>;
 type Me = Schemas["Me"];
@@ -78,6 +79,7 @@ export const useSession = create<SessionState>((set, get) => ({
   wipeLocal: async () => {
     await tokens.clear();
     prefs.remove(CACHED_USER);
+    await candleCache.clear().catch(() => undefined);
     set({ status: "signedOut", user: null });
   },
 }));

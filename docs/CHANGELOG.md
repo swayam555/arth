@@ -50,3 +50,30 @@
 - Mobile decoder on a 50-row delta (1,232 B): 17.4 µs per frame, against 21.0 µs for `@msgpack/msgpack` (Jest on Node, not on a device).
 
 **Not yet verified:** the emulator FPS gate (200-symbol watchlist, ≥55 FPS, no JS block > 50 ms), the subscription change on scroll and the reconnect after a gateway restart, all of which need the app running on the emulator. The x86_64 debug APK was still compiling native code (Skia) when this entry was written, on a host with ~0.5 GB free RAM. The results go into `docs/perf/REPORT.md` when measured. The api Testcontainers suite (`MarketApiTest`) was not rerun after the final api changes, for the same RAM reason.
+
+## Phase 3 — Charts (2026-11-19)
+
+**Added**
+- `packages/market/indicators.ts`: SMA, EMA, Wilder RSI and session-anchored VWAP in pure TS, checked against hand-computed reference values.
+- api: the `V4__candles.sql` migration adds TimescaleDB continuous aggregates `candles_5m/15m/1h/1d` over `candles_1m`, with real-time aggregation so the newest bar is never stale. `GET /v1/instruments/{symbol}/candles?tf&before&limit` uses cursor pagination (oldest-first page plus `nextBefore`) and validates `tf` and `limit` (1–1000) with a 400.
+- `feed-simulator` backfill: a seeded GBM history over past IST sessions (≥10k 1m candles per symbol over 27 sessions), bulk-inserted, followed by a refresh of the aggregates (`pnpm --filter @arth/feed-simulator backfill`).
+- Mobile chart (`features/chart`):
+  - **Rendering:** a Skia candlestick, volume, overlay and RSI renderer. Paths are built on the UI thread from shared values, only bars in the viewport are drawn, and the paths are memoised per viewport.
+  - **Gestures:** pan with decay, pinch-zoom around the focal point, and a long-press crosshair with an OHLC tooltip and haptics, all handled on the UI thread.
+  - **Data:** a SQLite candle cache (expo-sqlite) is read first, then the network, and the cache is pruned to 2,000 bars. Older pages load when you pan to the left edge, and live ticks are folded into the last bar.
+- An instrument screen (tap a watchlist row) with stats, a timeframe switcher and overlay chips (both persisted), a top-5 market-depth panel streamed over the gateway's depth channel, and English and Hindi strings. Signing out also clears the candle cache.
+
+**Fixed during the phase**
+- Skia 2.x paths are immutable; the renderer moved to `Skia.PathBuilder` and `.build()`.
+- The class-level `@Validated` on controllers turned `@Min`/`@Max` violations into 500s. Removing it lets Spring's built-in method validation return 400, which is covered by a regression test.
+- React Compiler lint rules: writes to shared values now use `.set()`. The candle hook resets its state during render when the symbol or timeframe changes (no setState in an effect), and `hasOlder` is now state rather than a ref read during render.
+
+**Verified**
+- Tests:
+  - api: 17/17 Testcontainers tests, including the new `CandleApiTest`. It covers 1m pagination, the 5m rollup values, 400 on a bad tf or limit, 404 and 401.
+  - Vitest: market 35/35, feed-simulator 8/8, tick-aggregator 7/7, stream-gateway 13/13.
+  - mobile: 67/67 Jest tests, covering chart math, the viewport, overlays, the SQLite and memory candle stores, and the `useCandles` hook (cache→network, older pages, live ticks, and an offline fallback to the cache).
+  - `tsc` and lint are clean in all 8 packages.
+- The offline-reopen path (cache renders when the network fails) is verified by `useCandles.test.tsx` against the real SQLite store logic on `node:sqlite`, not on a device.
+
+**Not yet verified:** pan/zoom across 10k candles at ≥55 FPS on the emulator, and live depth on a device. The host was at 1.2 GB of free disk and about 1 GB of free RAM, with Docker stopped. The Android build outputs were deleted to free disk space, so an APK rebuild did not fit. The backfill run time against Postgres was not measured, for the same reason. These go into `docs/perf/REPORT.md` when measured.

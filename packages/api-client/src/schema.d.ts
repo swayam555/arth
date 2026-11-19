@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/instruments/{symbol}/candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["candles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -248,6 +264,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Candles: {
+            candles: number[][];
+            /** Format: int64 */
+            nextBefore?: number;
+            tf: string;
+        };
         Detail: {
             instrument: components["schemas"]["Instrument"];
             quote?: components["schemas"]["Quote"];
@@ -522,6 +544,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    candles: {
+        parameters: {
+            query?: {
+                tf?: string;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Candles"];
                 };
             };
         };

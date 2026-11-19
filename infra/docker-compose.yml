@@ -107,6 +107,18 @@ services:
       kafka: { condition: service_healthy }
     mem_limit: 160m
 
+  backfill:
+    image: arth/feed-simulator:dev
+    profiles: [realtime, ai, obs]
+    command: ["node", "backfill.js"]
+    environment:
+      DATABASE_URL: postgres://arth:arth@postgres:5432/arth
+    depends_on:
+      api: { condition: service_healthy }
+      feed-simulator: { condition: service_started }
+    restart: "no"
+    mem_limit: 256m
+
   tick-aggregator:
     <<: *restart
     build:

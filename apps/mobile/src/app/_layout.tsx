@@ -41,6 +41,7 @@ export default function RootLayout() {
               <Stack.Screen name="search" options={{ presentation: "modal" }} />
               <Stack.Screen name="watchlists" options={{ presentation: "modal" }} />
               <Stack.Screen name="watchlist/[id]" options={{ presentation: "modal" }} />
+              <Stack.Screen name="instrument/[symbol]" />
             </Stack.Protected>
             <Stack.Screen name="privacy" options={{ presentation: "modal" }} />
           </Stack>

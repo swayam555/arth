@@ -72,7 +72,7 @@ export default function MarketsScreen() {
           data={items}
           keyExtractor={keyOf}
           extraData={active?.id}
-          renderItem={({ item }) => <QuoteRow symbol={item.symbol} name={item.name} prevClose={item.prevClose} />}
+          renderItem={({ item }) => <QuoteRow symbol={item.symbol} name={item.name} prevClose={item.prevClose} onPress={() => router.push(`/instrument/${item.symbol}`)} />}
           onViewableItemsChanged={viewport.onViewableItemsChanged}
           viewabilityConfig={viewport.viewabilityConfig}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.textMuted} />}

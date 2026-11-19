@@ -8,4 +8,9 @@ Source of truth for scope: docs/PLAN.md. History: docs/CHANGELOG.md.
   `cd apps/mobile && npx expo run:android` (set `reactNativeArchitectures=x86_64` in android/gradle.properties to cut build time/RAM), AVD `dukaan_lowram` or a new one.
 - Run: `docker compose -f infra/docker-compose.yml --profile core up -d --build` then `pnpm dev`. OTP code is printed in `docker logs arth-api-1` (or set OTP_FIXED_CODE).
 
-## Next: Phase 2 — Streaming pipeline (see docs/PLAN.md)
+## Phase 2 (Streaming) — DONE (committed 5e07730); emulator FPS gate unverified
+## Phase 3 (Charts) — DONE (committed); emulator FPS + device depth unverified (disk ~1.2 GB free, Docker stopped)
+- Tests: api 17, market 35, feed-sim 8, aggregator 7, gateway 13, mobile 67. `pnpm turbo run typecheck lint test` green.
+- Gotchas: Skia PathBuilder (immutable SkPath); no class-level @Validated on controllers; RNTL 14 renderHook/act are async; hoist useCandles deps in tests (inline → infinite reload/OOM).
+
+## Next: Phase 4 — Portfolio (see docs/PLAN.md)

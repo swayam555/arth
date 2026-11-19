@@ -18,7 +18,7 @@ COPY services/${SERVICE} services/${SERVICE}
 COPY infra/scripts/copy-externals.mjs infra-copy-externals.mjs
 RUN pnpm --filter "@arth/${SERVICE}..." run build
 ARG EXTERNALS=""
-RUN mkdir -p /out/node_modules && cp services/${SERVICE}/dist/main.js /out/main.js \
+RUN mkdir -p /out/node_modules && cp services/${SERVICE}/dist/*.js /out/ \
  && node infra-copy-externals.mjs node_modules /out/node_modules $EXTERNALS \
  && find /out/node_modules -name "uws_*.node" ! -name "uws_linux_x64_*" -delete \
  && echo '{"type":"module"}' > /out/package.json
