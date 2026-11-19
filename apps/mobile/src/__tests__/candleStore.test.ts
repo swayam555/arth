@@ -1,25 +1,6 @@
 import type { Candle } from "@arth/market";
-import { DatabaseSync } from "node:sqlite";
-import { memoryCandleStore, sqliteCandleStore, type CandleStore, type SqlDatabase } from "@/features/chart/candleStore";
-
-function nodeSqlite(): SqlDatabase {
-  const db = new DatabaseSync(":memory:");
-  return {
-    execAsync: async (sql) => void db.exec(sql),
-    runAsync: async (sql, ...params) => db.prepare(sql).run(...params),
-    getAllAsync: async <T,>(sql: string, ...params: (string | number)[]) => db.prepare(sql).all(...params) as T[],
-    withTransactionAsync: async (task) => {
-      db.exec("BEGIN");
-      try {
-        await task();
-        db.exec("COMMIT");
-      } catch (e) {
-        db.exec("ROLLBACK");
-        throw e;
-      }
-    },
-  };
-}
+import { memoryCandleStore, sqliteCandleStore, type CandleStore } from "@/features/chart/candleStore";
+import { nodeSqlite } from "@/testing/nodeSqlite";
 
 const bars = (n: number, from = 0): Candle[] => Array.from({ length: n }, (_, i) => [(from + i) * 60_000, 1 + i, 2 + i, i, 1.5 + i, 10 * i]);
 

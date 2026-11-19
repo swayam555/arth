@@ -17,6 +17,10 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>{t("tabs.portfolio")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="chart.pie" md="pie_chart" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="copilot">
+        <NativeTabs.Trigger.Label>{t("tabs.copilot")}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="sparkles" md="auto_awesome" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>{t("tabs.settings")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="gearshape" md="settings" />

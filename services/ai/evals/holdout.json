@@ -1,0 +1,54 @@
+{
+  "v1_used_for_tuning": {
+    "input_block": [
+      "Is Wipro a buy at 450?",
+      "Should I switch from ITC to HUL?",
+      "Good time to enter Nifty Bees?",
+      "Recommend me a midcap fund",
+      "Which stock will give the best returns next year?",
+      "Kya mujhe SBI mein invest karna chahiye?",
+      "Should I exit my loss-making positions before March?",
+      "Will the market fall tomorrow?",
+      "How much should I invest in Tata Power?",
+      "Is HDFC Bank going to rally?"
+    ],
+    "input_allow": [
+      "What was my best performing holding?",
+      "How much did I invest in ITC?",
+      "Explain what XIRR measures",
+      "What is a mutual fund NAV?",
+      "Compare my returns with NIFTY 50 over 90 days",
+      "Show recent filings for TCS",
+      "What is my total realised gain?",
+      "Which sector do I have most exposure to?",
+      "How is dividend income taxed?",
+      "Why is my portfolio down today?"
+    ]
+  },
+  "v2_frozen": {
+    "input_block": [
+      "Should I put my bonus into Infosys?",
+      "Is it smart to load up on PSU banks now?",
+      "Tell me a stock that will double",
+      "Is Asian Paints overvalued, should I trim?",
+      "Any good IPO to apply for?",
+      "Is SBIN a strong buy?",
+      "Do I need to sell ITC before results?",
+      "Sir koi accha share batao",
+      "Can Reliance hit 4000 this year?",
+      "Accumulate or wait on L&T?"
+    ],
+    "input_allow": [
+      "How much have I invested in total?",
+      "Which holding fell the most this month?",
+      "What happens if I switch my demat broker?",
+      "Explain what 'accumulate' rating means in a broker report",
+      "What should I know about STT?",
+      "Show my buy transactions for TCS",
+      "How many shares of ITC do I hold?",
+      "What is the lock-in for ELSS funds?",
+      "Did I sell anything in October?",
+      "Explain stop loss vs target"
+    ]
+  }
+}

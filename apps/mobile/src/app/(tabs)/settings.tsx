@@ -8,7 +8,8 @@ import { formatIndianMobile } from "@/features/auth/phone";
 import { useSession } from "@/features/auth/session";
 import { ConsentList } from "@/features/consent/ConsentList";
 import { initialDecisions, type Purpose } from "@/features/consent/purposes";
-import { deleteMyAccount, exportMyData } from "@/features/settings/dataRights";
+import { useCopilot } from "@/features/copilot/store";
+import { deleteMyAccount, exportCopilotChats, exportMyData } from "@/features/settings/dataRights";
 import { setLanguage, type Language } from "@/i18n";
 import { ListRow, Section } from "@/ui/ListRow";
 import { Screen } from "@/ui/Screen";
@@ -26,7 +27,7 @@ export default function SettingsScreen() {
   const setPreference = useThemePreference((s) => s.setPreference);
   const biometric = useBiometricLock((s) => s.enabled);
   const setBiometric = useBiometricLock((s) => s.setEnabled);
-  const [busy, setBusy] = useState<"export" | "delete" | null>(null);
+  const [busy, setBusy] = useState<"export" | "delete" | "chats" | null>(null);
 
   const decisions = initialDecisions(user?.consents);
   const changeConsent = (p: Purpose, granted: boolean) => void saveConsents({ ...decisions, [p]: granted });
@@ -41,16 +42,33 @@ export default function SettingsScreen() {
     if (!ok) Alert.alert(t("settings.biometric"), t("settings.biometricUnavailable"));
   };
 
-  const runExport = async () => {
-    setBusy("export");
+  const runExport = async (what: "export" | "chats") => {
+    setBusy(what);
     try {
-      await exportMyData();
+      await (what === "export" ? exportMyData() : exportCopilotChats());
     } catch {
       Alert.alert(t("common.somethingWrong"));
     } finally {
       setBusy(null);
     }
   };
+
+  const confirmDeleteChats = () =>
+    Alert.alert(t("copilot.deleteChats"), t("copilot.deleteChatsConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("settings.deleteAction"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const count = await useCopilot.getState().wipe(true);
+            Alert.alert(t("copilot.deletedChats", { count }));
+          } catch {
+            Alert.alert(t("common.somethingWrong"));
+          }
+        },
+      },
+    ]);
 
   const confirmDelete = () =>
     Alert.alert(t("settings.delete"), t("settings.deleteConfirm"), [
@@ -108,7 +126,13 @@ export default function SettingsScreen() {
           <ListRow testID="biometric" title={t("settings.biometric")} description={t("settings.biometricDesc")} value={biometric} onValueChange={toggleBiometric} />
           <ConsentList decisions={decisions} onChange={changeConsent} />
           <ListRow testID="privacy-notice" title={t("settings.privacyNotice")} onPress={() => router.push("/privacy")} trailing={<Text muted>›</Text>} />
-          <ListRow testID="export" title={t("settings.export")} onPress={runExport} trailing={busy === "export" ? <Text muted>…</Text> : null} />
+          <ListRow testID="export" title={t("settings.export")} onPress={() => void runExport("export")} trailing={busy === "export" ? <Text muted>…</Text> : null} />
+          {user?.consents?.ai_copilot ? (
+            <>
+              <ListRow testID="export-chats" title={t("copilot.exportChats")} onPress={() => void runExport("chats")} trailing={busy === "chats" ? <Text muted>…</Text> : null} />
+              <ListRow testID="delete-chats" title={t("copilot.deleteChats")} destructive onPress={confirmDeleteChats} />
+            </>
+          ) : null}
           <ListRow testID="delete-account" title={t("settings.delete")} destructive onPress={confirmDelete} />
         </Section>
 

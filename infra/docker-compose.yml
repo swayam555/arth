@@ -158,6 +158,35 @@ services:
       timeout: 5s
       retries: 6
 
+  ai:
+    <<: *restart
+    build:
+      context: ../services/ai
+    image: arth/ai:dev
+    profiles: [ai, obs]
+    environment:
+      DATABASE_URL: postgresql://arth:arth@postgres:5432/arth
+      REDIS_URL: redis://redis:6379
+      ARTH_API_URL: http://api:8080
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+      INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET:-dev-only-internal-secret-change-me-dev-only-x}
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      NEWS_FEED_URLS: ${NEWS_FEED_URLS:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_healthy }
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/readyz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
+
   certs:
     image: alpine/openssl:3.5.9
     profiles: [core, realtime, ai, obs]

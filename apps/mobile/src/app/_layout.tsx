@@ -45,6 +45,7 @@ export default function RootLayout() {
               <Stack.Screen name="portfolio/transactions" />
               <Stack.Screen name="portfolio/txn" options={{ presentation: "modal" }} />
               <Stack.Screen name="portfolio/import" options={{ presentation: "modal" }} />
+              <Stack.Screen name="copilot-history" options={{ presentation: "modal" }} />
             </Stack.Protected>
             <Stack.Screen name="privacy" options={{ presentation: "modal" }} />
           </Stack>

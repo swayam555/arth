@@ -17,4 +17,9 @@ Source of truth for scope: docs/PLAN.md. History: docs/CHANGELOG.md.
 - Tests: api 40, mobile 76, rest unchanged. Samples in samples/ (Zerodha tradebook + custom CSV).
 - Units: pct fields are percents (4dp); weight/xirr are fractions; xirr absent with <2 flows.
 
-## Next: Phase 5 — AI Copilot (see docs/PLAN.md)
+## Phase 5 (AI Copilot) — DONE (committed); no LLM key, Docker down, device unverified
+- Tests: ai pytest 58 + evals 63/63 (frozen holdout recall 0.20, see services/ai/evals/README.md), mobile 100. api internal test compiles only.
+- Run ai locally: `cd services/ai && uv sync && AI_BACKEND=memory .venv/bin/uvicorn arth_ai.main:app --port 8090` (scripted provider without keys). In compose: `--profile ai`. Keys: ANTHROPIC_API_KEY (default provider), GROQ_API_KEY (voice), VOYAGE_API_KEY (embeddings, optional).
+- To verify when resources allow: InternalApiTest, alembic upgrade on PG, compose ai + nginx SSE (`curl -N`), real-provider turn, device chat + mic.
+
+## Next: Phase 6 — Alerts, push, digest (see docs/PLAN.md)

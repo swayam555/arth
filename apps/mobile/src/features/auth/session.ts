@@ -80,6 +80,7 @@ export const useSession = create<SessionState>((set, get) => ({
     await tokens.clear();
     prefs.remove(CACHED_USER);
     await candleCache.clear().catch(() => undefined);
+    await import("@/features/copilot/store").then((m) => m.useCopilot.getState().wipe(false)).catch(() => undefined);
     set({ status: "signedOut", user: null });
   },
 }));

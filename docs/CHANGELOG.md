@@ -112,3 +112,64 @@
   - `expo export --platform android` bundles (5.3 MB Hermes bytecode).
 
 **Not yet verified:** the portfolio screens on an emulator or device, including the document picker with a real CAS PDF. Low RAM and disk on the host carry this over from earlier phases.
+
+## Phase 5 — AI Copilot (2026-11-19)
+
+**Added**
+- `services/ai` (FastAPI, Python 3.13, uv): `POST /v1/chat` streams SSE events (`meta`, `token`, `replace`, `status`, `block`, `citations`, `done`, `error`). There are also session list/messages/delete, a DPDP export and delete-all, `POST /v1/ai/transcribe` (Groq Whisper, consent-gated, 415/413/422 checks), `/healthz`, `/readyz` and Prometheus `/metrics` (`arth_ai_*`).
+- An agent loop with tool calls. Seven tools (portfolio metrics, holdings, sector exposure, compare to the NIFTY 50 via NIFTYBEES, price history, filings and news search) read the user's data through new api `/internal/*` endpoints. Those endpoints use a short-lived service JWT with its own secret, issuer and audience (`InternalSecurityConfig`, `InternalController`).
+- Generative UI blocks (`line_chart`, `allocation_donut`, `holdings_table`, `stock_chips`) built from tool output, never from model text.
+- Providers behind one interface:
+  - Anthropic, the default when a key is set (`claude-opus-5-5`).
+  - An OpenAI-compatible provider that covers OpenAI, Groq and Ollama.
+  - A deterministic scripted provider that answers only from tool facts.
+  - A record/replay cassette wrapper.
+- RAG over a 22-document seed corpus (filings summaries, tax and SEBI explainers, news, plus one planted prompt-injection post), with an optional RSS fetcher. Hybrid search uses lexical plus a hashing or Voyage embedder, merged with RRF, then reranked lexically or by LLM, with numbered citations. pgvector storage is used in Postgres mode, with Alembic migration `0001_copilot`.
+- Guardrails:
+  - A SEBI input guard that sends a refusal and reframe without calling any tool.
+  - An output advice guard that replaces the answer.
+  - Numeric grounding: every number must trace to a tool result. Otherwise there is one repair round and then the unsupported sentences are dropped (`grounded:false`).
+  - Prompt-injection neutralisation of retrieved text.
+  - PII masking (email, phone, PAN, Aadhaar, card) before anything is stored or sent.
+  - A daily token budget (429).
+  - Consent required (403).
+  - A Redis answer cache keyed by the normalised question plus the portfolio version.
+- `evals/`: 63 cases plus a 20-case tuned holdout and a 20-case frozen holdout, with a scorer for refusal recall/precision, groundedness, injection and PII (`python -m evals.run`).
+- Compose `ai` service (384 MB limit) and an nginx `/v1/chat` + `/v1/ai` route with buffering off for SSE.
+- Mobile Copilot tab:
+  - Streaming chat over `expo/fetch` with an incremental SSE parser.
+  - Markdown with tappable `[n]` citations and a citation sheet.
+  - Native blocks: a Skia line chart with returns, a donut, a holdings table and stock chips, all deep-linking to the instrument screen.
+  - Stop, new chat, and history (SQLite on device, server as the source of truth, stale sessions pruned).
+  - A consent gate and a budget banner.
+  - Hindi or English voice input (expo-audio → transcribe).
+  - Disclaimer, cached, PII-masked and ungrounded notes.
+  - Settings rows to export or delete chats.
+  - Sign-out wipes the local chat copy.
+
+**Fixed during the phase**
+- The input guard missed "-ing" forms, multi-word forecast subjects and the 5+5 phone format. It also falsely blocked "When did I last buy ITC?". A `_FORECAST` check could be bypassed by an educational prefix. All of these were found by the first eval run (56/63 → 63/63).
+- The output guard missed contractions ("I'd recommend buying") and flagged definitions of "target price".
+- The scripted provider looped forever re-emitting a block after the tool round.
+- FastAPI returned 422 for every request: `Annotated` dependencies defined inside the factory were read as query params.
+- Citations were sent snake_case and the app expected camelCase. Prometheus metric names collided with the api's, so they now use the `arth_ai_` prefix.
+- Mobile:
+  - The SSE parser split an event in two when a `\r\n` straddled two network chunks.
+  - The chat store crashed after a consent or budget error, because it patched a turn it had just removed. It now patches the draft by id, which also stops a stream that was stopped late from writing into a new chat.
+  - Skia 2.x has no usable `MakeFromSVGString` path, so charts use `PathBuilder`.
+
+**Verified**
+- ai: pytest 58/58 (agent, API with a fake api and auth, guards, tools, news), ruff and mypy clean. Evals: 63/63 on `cases.json`. Frozen holdout v2: input-guard recall **0.20**, precision 1.00, so the regex guard is a pre-filter, not the safety boundary (details in `services/ai/evals/README.md`). The acceptance flows "Why is my portfolio down?" (tool numbers plus a chart block), buy/sell → refusal, and injected doc → no behaviour change pass end-to-end in the agent tests with the scripted provider.
+- mobile: Jest 100/100, including the SSE parser at 1/3/7/64-char chunk splits and split UTF-8, the turn reducer, markdown, chart geometry, SQLite history via `node:sqlite`, and the store (consent/budget gates, offline, stop, prune, wipe). `tsc` and ESLint clean. `pnpm turbo run typecheck lint test`: 18/18 tasks green.
+- Live boot: `AI_BACKEND=memory uvicorn arth_ai.main:app` reaches ready (`/readyz` → `provider: scripted`). `POST /v1/chat` without a token returns 401 and `/metrics` exposes the `arth_ai_*` series.
+- api: `InternalController` and `InternalApiTest` compile (`gradlew compileJava compileTestJava`).
+
+**Not yet verified**
+- **No real LLM was called.** No Anthropic, OpenAI or Groq key was available, so every answer above came from the scripted provider. The Anthropic and OpenAI-compatible providers are unit-tested only through fakes, and voice transcription only through a fake transcriber.
+- Docker was down and the disk had ~1.3 GB free, so none of these ran:
+  - `InternalApiTest` (Testcontainers)
+  - Alembic and pgvector against Postgres
+  - the `arth/ai` image build
+  - the compose `ai` profile
+  - the nginx SSE route
+- On a device or emulator: the chat UI, the Skia line chart, the native Copilot tab and microphone recording.

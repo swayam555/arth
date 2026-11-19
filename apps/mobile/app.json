@@ -69,7 +69,14 @@
           "imageWidth": 120
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Arth uses the microphone only while you dictate a question to the copilot.",
+          "enableBackgroundPlayback": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
