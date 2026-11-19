@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package arth.v1;
+
+option java_package = "in.arth.proto.v1";
+option java_multiple_files = true;
+
+enum AlertKind {
+  ALERT_KIND_UNSPECIFIED = 0;
+  ALERT_KIND_ABOVE = 1;
+  ALERT_KIND_BELOW = 2;
+  ALERT_KIND_PCT_MOVE = 3;
+}
+
+// alerts.fired, keyed by user_id.
+message AlertFired {
+  string alert_id = 1;
+  string user_id = 2;
+  string symbol = 3;
+  AlertKind kind = 4;
+  double threshold = 5;
+  double trigger_price = 6;
+  int64 ts_ms = 7;
+}
+
+// digest.ready, keyed by user_id.
+message DigestReady {
+  string user_id = 1;
+  string digest_id = 2;
+  string for_date = 3;
+  string title = 4;
+  string body = 5;
+}
+
+// notifications.dlq, keyed by user_id.
+message FailedNotification {
+  string user_id = 1;
+  string kind = 2;
+  bytes payload = 3;
+  string reason = 4;
+  int32 attempts = 5;
+  int64 ts_ms = 6;
+}
+
+// portfolio.updated, keyed by user_id.
+message PortfolioUpdated {
+  string user_id = 1;
+  int64 version = 2;
+  int64 ts_ms = 3;
+}
+
+// user.deleted, keyed by user_id. Downstream stores must erase everything for this user.
+message UserDeleted {
+  string user_id = 1;
+  int64 ts_ms = 2;
+}
+
+// news.ingested, keyed by doc_id.
+message NewsIngested {
+  string doc_id = 1;
+  repeated string symbols = 2;
+  string source = 3;
+  string url = 4;
+  int64 published_ms = 5;
+}

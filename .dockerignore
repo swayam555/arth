@@ -1,0 +1,9 @@
+**/node_modules
+**/build
+**/.gradle
+**/.turbo
+**/.expo
+**/dist
+apps/mobile
+.git
+docs

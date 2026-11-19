@@ -1,0 +1,16 @@
+nodeLinker: hoisted
+
+packages:
+  - apps/*
+  - packages/*
+  - services/feed-simulator
+  - services/tick-aggregator
+  - services/stream-gateway
+  - services/alert-engine
+  - services/notifier
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@swc/core': true
+  esbuild: true
+  '@bufbuild/buf': true

@@ -1,0 +1,26 @@
+{
+  "name": "arth",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev --filter=@arth/mobile --filter=./services/*",
+    "dev:mobile": "pnpm --filter @arth/mobile start",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "proto": "pnpm --filter @arth/proto build",
+    "api-client": "pnpm --filter @arth/api-client generate",
+    "infra:up": "docker compose -f infra/docker-compose.yml --profile core up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml --profile '*' down",
+    "ci": "pnpm proto && pnpm typecheck && pnpm lint && pnpm test && pnpm test:api",
+    "test:api": "cd services/api && ./gradlew test --console=plain"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.12"
+  }
+}

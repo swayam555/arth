@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package arth.v1;
+
+option java_package = "in.arth.proto.v1";
+option java_multiple_files = true;
+
+message PriceLevel {
+  double price = 1;
+  int64 quantity = 2;
+}
+
+// Published to ticks.raw, keyed by symbol.
+message Tick {
+  string symbol = 1;
+  double ltp = 2;
+  // Cumulative traded volume for the session.
+  int64 volume = 3;
+  repeated PriceLevel bids = 4;
+  repeated PriceLevel asks = 5;
+  int64 ts_ms = 6;
+  // Per-symbol sequence from the source; lets consumers drop duplicates after a rebalance.
+  int64 seq = 7;
+  double prev_close = 8;
+}
+
+// Published to candles.1m when a bucket closes, keyed by symbol.
+message Candle {
+  string symbol = 1;
+  double open = 2;
+  double high = 3;
+  double low = 4;
+  double close = 5;
+  int64 volume = 6;
+  int64 bucket_start_ms = 7;
+}
