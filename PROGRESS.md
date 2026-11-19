@@ -22,4 +22,9 @@ Source of truth for scope: docs/PLAN.md. History: docs/CHANGELOG.md.
 - Run ai locally: `cd services/ai && uv sync && AI_BACKEND=memory .venv/bin/uvicorn arth_ai.main:app --port 8090` (scripted provider without keys). In compose: `--profile ai`. Keys: ANTHROPIC_API_KEY (default provider), GROQ_API_KEY (voice), VOYAGE_API_KEY (embeddings, optional).
 - To verify when resources allow: InternalApiTest, alembic upgrade on PG, compose ai + nginx SSE (`curl -N`), real-provider turn, device chat + mic.
 
-## Next: Phase 6 — Alerts, push, digest (see docs/PLAN.md)
+## Phase 6 (Alerts/push/digest) — DONE (committed); Docker down, emulator push unverified
+- Tests: mobile 114, alert-engine 19, notifier 11, ai 76; api compiles (AlertApiTest + AuthFlowTest device test not run).
+- To verify: compose realtime+ai stack → create alert → feed crosses → notifier log/Expo push → tap opens instrument; kill Expo creds → DLQ; digest at 15:45 IST once per user. Needs EAS projectId for real push. Regenerate openapi.json from springdoc.
+- Gotchas: RNTL 14 fireEvent is async (await it); React Query tests need gcTime: Infinity or Jest hangs.
+
+## Next: Phase 7 — Hardening (see docs/PLAN.md)

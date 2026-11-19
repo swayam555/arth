@@ -173,3 +173,47 @@
   - the compose `ai` profile
   - the nginx SSE route
 - On a device or emulator: the chat UI, the Skia line chart, the native Copilot tab and microphone recording.
+
+## Phase 6 — Alerts, push, digest (2026-11-20)
+
+**Added**
+- api: the `V6__alerts.sql` migration and `/v1/alerts` (list, create, toggle, delete) for `above`, `below` and `pct_move` alerts. A user can have at most 50 active alerts; a 51st returns 409 `alert_limit`. Every change publishes the alert id on the Redis channel `alerts:changed`. `POST /v1/me/devices/unregister` removes a push token. Alerts and devices are included in the DPDP export.
+- `services/alert-engine`: consumes `ticks.raw` and keeps a sorted threshold index per symbol (Redis, with an in-memory version for tests). `crossing.ts` evaluates every step of a tick batch, so a spike that reverts inside one batch still counts as a crossing. Firing is idempotent because it needs two things to succeed: a Redis cooldown claim (900 s) and a conditional `UPDATE … WHERE active RETURNING`. The engine publishes `alerts.fired` and resyncs on `alerts:changed`.
+- `services/notifier`: consumes `alerts.fired` and `digest.ready`. It checks push consent, sends through the Expo push API (or a log sender when there is no `EXPO_ACCESS_TOKEN`) with a collapse id, and retries failed tickets with full-jitter exponential backoff that honours `Retry-After`. It forgets devices that report `DeviceNotRegistered`. Anything still failing after the last attempt goes to `notifications.dlq` with the original payload.
+- ai: `digest.py`. It models the NSE session clock in IST and picks the three largest absolute moves, each with its share of the day's movement. The text passes through the SEBI advice guard. The final digest has a deterministic uuid5 id and is generated at most once per user per session date (migration `0002_digests`). The scheduler runs at 15:45 IST and publishes `digest.ready` through aiokafka, at-least-once, with the collapse id folding duplicates. It reads the audience from push consent. Endpoints: `/v1/digest/today` and `/v1/digest/{date}`. A `user.deleted` consumer erases chats, usage and digests, committing offsets only after the erase.
+- Mobile:
+  - an alerts panel on the instrument screen, with validation against the live price (`alreadyAbove`/`alreadyBelow`, a % range) and the server's limit error;
+  - an Alerts management screen (Settings → Notifications);
+  - push registration gated on the push consent, with Android channels `alerts` (high) and `digest`;
+  - notification taps routed through a strict deep-link parser (`arth://instrument/{SYM}`, `arth://digest/{date}` or `https://arth.app/…`), including cold start;
+  - the device token unregistered on sign-out and wiped on erase;
+  - a digest card on Portfolio and a digest detail screen;
+  - English and Hindi strings for all of it.
+- nginx serves `/.well-known/assetlinks.json` for Android App Links.
+
+**Fixed during the phase**
+- ESLint's `import/namespace` rule couldn't resolve `Notifications.AndroidImportance`; it is now a named import.
+- A `pushToken.clear` returned a boolean where `void` was declared.
+- The AlertsPanel test hung after passing because React Query's garbage-collection timer kept Jest alive. The test client now sets `gcTime: Infinity`. RNTL 14's `fireEvent` is async and must be awaited, or the press reads stale input state.
+
+**Verified**
+- Tests:
+  - mobile Jest 114/114 (alert rules, the deep-link parser, unregister, and AlertsPanel rendering with a mocked API);
+  - alert-engine 19 and notifier 11 (Vitest);
+  - ai pytest 76, with ruff and mypy clean.
+- `pnpm turbo run typecheck lint test`: 22/22 green.
+- api: `compileJava compileTestJava` is clean.
+- `expo config --type prebuild` resolves with the notifications plugin.
+- The assetlinks fingerprint matches the debug keystore (checked with `keytool`).
+
+**Not yet verified**
+- Docker was down (Docker.raw disk full), so none of these have run:
+  - the Testcontainers suites (`AlertApiTest`, the new `AuthFlowTest` device test);
+  - migration `V6`, and ai migration `0002` plus the PgStore digest SQL, against Postgres;
+  - the Redis threshold index against real Redis (it is tested against FakeRedis only);
+  - aiokafka and the erasure consumer against Kafka;
+  - the end-to-end path tick → alert → push → DLQ.
+- The OpenAPI additions (alerts and device unregister) were written by hand in `openapi.json`. Regenerate them from springdoc when the api runs.
+- Push delivery and taps on the emulator need an EAS `projectId` in `extra.eas.projectId`. Until one is set, `registerForPush` returns `unavailable`.
+- `assetlinks.json` uses the debug keystore SHA-256 and must be replaced for release. The iOS `apple-app-site-association` file was not added because it needs an Apple Team ID.
+- NSE holidays are not modelled (a holiday looks like a flat session). The digest scheduler assumes a single replica.

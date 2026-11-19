@@ -103,4 +103,16 @@ class AuthFlowTest extends IntegrationTest {
 				.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		assertThat(get("/v1/me", token).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 	}
+
+	@Test
+	void devicesRegisterIdempotentlyAndUnregister() {
+		String token = (String) login("+919812345605").get("accessToken");
+		Map<String, String> device = Map.of("expoPushToken", "ExponentPushToken[it-device]", "platform", "android");
+		assertThat(post("/v1/me/devices", device, token).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		assertThat(post("/v1/me/devices", device, token).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		assertThat((java.util.List<?>) get("/v1/me/export", token).getBody().get("devices")).hasSize(1);
+		assertThat(post("/v1/me/devices/unregister", Map.of("expoPushToken", "ExponentPushToken[it-device]"), token)
+				.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		assertThat((java.util.List<?>) get("/v1/me/export", token).getBody().get("devices")).isEmpty();
+	}
 }

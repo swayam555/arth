@@ -8,6 +8,7 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
@@ -21,6 +22,7 @@ from .api_client import ApiError, HttpPortfolioApi, PortfolioApi
 from .auth import AuthError, user_from_bearer
 from .cache import AnswerCache, MemoryCache, RedisCache
 from .config import Settings, settings
+from .digest import DigestScheduler, DigestService
 from .providers.base import Provider
 from .rag.memory import MemoryRetriever
 from .rag.news import RssNewsSource
@@ -47,6 +49,10 @@ class Deps:
     @property
     def agent(self) -> Agent:
         return Agent(self.cfg, self.provider, self.api, self.retriever, self.store, self.cache)
+
+    @property
+    def digest(self) -> DigestService:
+        return DigestService(self.api, self.store)
 
 
 async def build_deps(cfg: Settings) -> tuple[Deps, contextlib.AsyncExitStack]:
@@ -80,6 +86,17 @@ async def build_deps(cfg: Settings) -> tuple[Deps, contextlib.AsyncExitStack]:
             log.info("seeded %d corpus documents", await pg.upsert(load_corpus()))
         retriever, store, cache, sink = pg, PgStore(pool), RedisCache(client), pg.upsert
     deps = Deps(cfg, provider, api, retriever, store, cache, transcriber)
+    if cfg.kafka_brokers and cfg.backend != "memory":
+        from .events import ErasureConsumer, KafkaPublisher, PgAudience
+
+        erasure = ErasureConsumer(cfg.kafka_brokers, store.delete_all)
+        deps.background.append(asyncio.create_task(erasure.run()))
+        if cfg.digest_scheduler:
+            publisher = KafkaPublisher(cfg.kafka_brokers)
+            await publisher.start()
+            stack.push_async_callback(publisher.stop)
+            sched = DigestScheduler(deps.digest, store, PgAudience(pool, cfg.consent_version), publisher)
+            deps.background.append(asyncio.create_task(sched.loop()))
     if cfg.news_feed_urls:
         news = RssNewsSource(cfg.news_feed_urls, sink, cfg.news_poll_s)
         deps.background.append(asyncio.create_task(news.run()))
@@ -199,6 +216,21 @@ def create_app(deps: Deps | None = None) -> FastAPI:
         except TranscribeError as e:
             raise HTTPException(e.status, {"code": e.code}) from e
         return {"text": text}
+
+    @app.get("/v1/digest/today")
+    async def digest_today(user: UserDep, d: DepsDep) -> dict[str, Any]:
+        try:
+            digest, cached = await d.digest.today(user)
+        except ApiError as e:
+            raise HTTPException(502, {"code": "portfolio_unavailable"}) from e
+        return {"digest": digest, "cached": cached}
+
+    @app.get("/v1/digest/{for_date}")
+    async def digest_on(for_date: date, user: UserDep, d: DepsDep) -> dict[str, Any]:
+        digest = await d.digest.by_date(user, for_date)
+        if digest is None:
+            raise HTTPException(404, {"code": "digest_not_found"})
+        return {"digest": digest, "cached": True}
 
     @app.get("/healthz", response_class=PlainTextResponse)
     async def healthz() -> str:

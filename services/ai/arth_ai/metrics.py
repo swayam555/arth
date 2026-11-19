@@ -16,3 +16,6 @@ TTFT_SECONDS = Histogram(
 TOOL_SECONDS = Histogram(
     "arth_ai_tool_seconds", "Tool latency", ["tool"], buckets=(0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2), registry=REGISTRY
 )
+DIGESTS = Counter("arth_ai_digests_total", "Digest requests by outcome", ["outcome"], registry=REGISTRY)
+DIGEST_RUNS = Counter("arth_ai_digest_runs_total", "Scheduled digest runs", ["result"], registry=REGISTRY)
+ERASURES = Counter("arth_ai_erasures_total", "user.deleted events applied", ["result"], registry=REGISTRY)

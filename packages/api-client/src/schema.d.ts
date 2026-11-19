@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/v1/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAlerts"];
+        put?: never;
+        post: operations["createAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/alerts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAlert"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAlert"];
+        trace?: never;
+    };
     "/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -356,10 +388,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/devices/unregister": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unregisterDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Alert: {
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "above" | "below" | "pct_move";
+            /** Format: date-time */
+            lastFiredAt?: string;
+            name: string;
+            symbol: string;
+            value: number;
+        };
         Allocation: {
             asset: components["schemas"]["Slice"][];
             mcap: components["schemas"]["Slice"][];
@@ -370,6 +432,12 @@ export interface components {
             /** Format: int64 */
             nextBefore?: number;
             tf: string;
+        };
+        CreateAlert: {
+            /** @enum {string} */
+            kind: "above" | "below" | "pct_move";
+            symbol: string;
+            value: number;
         };
         Detail: {
             instrument: components["schemas"]["Instrument"];
@@ -597,6 +665,10 @@ export interface components {
             /** Format: date */
             tradeDate: string;
         };
+        UpdateAlert: {
+            active?: boolean;
+            value?: number;
+        };
         UpdateMe: {
             locale?: string;
             name?: string;
@@ -609,6 +681,9 @@ export interface components {
             /** Format: int32 */
             position: number;
         };
+        UnregisterDevice: {
+            expoPushToken: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -618,6 +693,96 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Alert"][];
+                };
+            };
+        };
+    };
+    createAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAlert"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Alert"];
+                };
+            };
+        };
+    };
+    deleteAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAlert"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Alert"];
+                };
+            };
+        };
+    };
     logout: {
         parameters: {
             query?: never;
@@ -1289,6 +1454,28 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["Watchlist"];
                 };
+            };
+        };
+    };
+    unregisterDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnregisterDevice"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -42,6 +42,11 @@ class Store(Protocol):
     async def tokens_today(self, user: uuid.UUID) -> int: ...
     async def add_usage(self, user: uuid.UUID, input_tokens: int, output_tokens: int) -> None: ...
     async def ping(self) -> bool: ...
+    async def digest_get(self, user: uuid.UUID, for_date: date) -> Json | None: ...
+    async def digest_latest(self, user: uuid.UUID) -> Json | None: ...
+    async def digest_put(self, user: uuid.UUID, for_date: date, digest: Json) -> bool: ...
+    async def digest_mark_notified(self, user: uuid.UUID, for_date: date) -> None: ...
+    async def digest_notified(self, user: uuid.UUID, for_date: date) -> bool: ...
 
 
 class NotFound(Exception):
@@ -61,6 +66,7 @@ class MemoryStore:
     def __init__(self) -> None:
         self._s: dict[uuid.UUID, _Session] = {}
         self._usage: dict[tuple[uuid.UUID, date], tuple[int, int, int]] = {}
+        self._digests: dict[tuple[uuid.UUID, date], tuple[Json, bool]] = {}
 
     async def ensure_session(self, user: uuid.UUID, session: uuid.UUID | None, title: str) -> uuid.UUID:
         if session is not None:
@@ -122,7 +128,8 @@ class MemoryStore:
             for (u, d), (i, o, n) in self._usage.items()
             if u == user
         ]
-        return {"sessions": out, "usage": usage}
+        digests = [d for (u, _), (d, _) in sorted(self._digests.items(), key=lambda kv: kv[0][1]) if u == user]
+        return {"sessions": out, "usage": usage, "digests": digests}
 
     async def delete_all(self, user: uuid.UUID) -> int:
         ids = [sid for sid, s in self._s.items() if s.user == user]
@@ -130,6 +137,8 @@ class MemoryStore:
             del self._s[sid]
         for k in [k for k in self._usage if k[0] == user]:
             del self._usage[k]
+        for dk in [k for k in self._digests if k[0] == user]:
+            del self._digests[dk]
         return len(ids)
 
     async def tokens_today(self, user: uuid.UUID) -> int:
@@ -143,6 +152,29 @@ class MemoryStore:
 
     async def ping(self) -> bool:
         return True
+
+    async def digest_get(self, user: uuid.UUID, for_date: date) -> Json | None:
+        hit = self._digests.get((user, for_date))
+        return dict(hit[0]) if hit else None
+
+    async def digest_latest(self, user: uuid.UUID) -> Json | None:
+        mine = [k for k in self._digests if k[0] == user]
+        return dict(self._digests[max(mine, key=lambda k: k[1])][0]) if mine else None
+
+    async def digest_put(self, user: uuid.UUID, for_date: date, digest: Json) -> bool:
+        if (user, for_date) in self._digests:
+            return False
+        self._digests[(user, for_date)] = (dict(digest), False)
+        return True
+
+    async def digest_mark_notified(self, user: uuid.UUID, for_date: date) -> None:
+        hit = self._digests.get((user, for_date))
+        if hit:
+            self._digests[(user, for_date)] = (hit[0], True)
+
+    async def digest_notified(self, user: uuid.UUID, for_date: date) -> bool:
+        hit = self._digests.get((user, for_date))
+        return bool(hit and hit[1])
 
 
 def _msg(r: asyncpg.Record) -> StoredMessage:
@@ -223,6 +255,7 @@ class PgStore:
         usage = await self._pool.fetch(
             "SELECT day, input_tokens, output_tokens, requests FROM ai.ai_usage WHERE user_id=$1 ORDER BY day", user
         )
+        digests = await self._pool.fetch("SELECT body::text FROM ai.digests WHERE user_id=$1 ORDER BY for_date", user)
         by: dict[uuid.UUID, list[Json]] = {}
         for m in msgs:
             by.setdefault(m["session_id"], []).append(_msg(m).to_json())
@@ -245,12 +278,14 @@ class PgStore:
                 }
                 for u in usage
             ],
+            "digests": [json.loads(d["body"]) for d in digests],
         }
 
     async def delete_all(self, user: uuid.UUID) -> int:
         async with self._pool.acquire() as con, con.transaction():
             res: str = await con.execute("DELETE FROM ai.chat_sessions WHERE user_id=$1", user)
             await con.execute("DELETE FROM ai.ai_usage WHERE user_id=$1", user)
+            await con.execute("DELETE FROM ai.digests WHERE user_id=$1", user)
         return int(res.split()[-1])
 
     async def tokens_today(self, user: uuid.UUID) -> int:
@@ -275,3 +310,35 @@ class PgStore:
             return bool(await self._pool.fetchval("SELECT 1"))
         except (asyncpg.PostgresError, OSError):
             return False
+
+    async def digest_get(self, user: uuid.UUID, for_date: date) -> Json | None:
+        v = await self._pool.fetchval("SELECT body::text FROM ai.digests WHERE user_id=$1 AND for_date=$2", user, for_date)
+        return dict(json.loads(v)) if v else None
+
+    async def digest_latest(self, user: uuid.UUID) -> Json | None:
+        v = await self._pool.fetchval("SELECT body::text FROM ai.digests WHERE user_id=$1 ORDER BY for_date DESC LIMIT 1", user)
+        return dict(json.loads(v)) if v else None
+
+    async def digest_put(self, user: uuid.UUID, for_date: date, digest: Json) -> bool:
+        res: str = await self._pool.execute(
+            """INSERT INTO ai.digests (id, user_id, for_date, body, data_version) VALUES ($1, $2, $3, $4::jsonb, $5)
+               ON CONFLICT (user_id, for_date) DO NOTHING""",
+            uuid.UUID(digest["id"]),
+            user,
+            for_date,
+            json.dumps(digest),
+            digest.get("dataVersion", ""),
+        )
+        return res.endswith(" 1")
+
+    async def digest_mark_notified(self, user: uuid.UUID, for_date: date) -> None:
+        await self._pool.execute(
+            "UPDATE ai.digests SET notified_at=now() WHERE user_id=$1 AND for_date=$2 AND notified_at IS NULL", user, for_date
+        )
+
+    async def digest_notified(self, user: uuid.UUID, for_date: date) -> bool:
+        return bool(
+            await self._pool.fetchval(
+                "SELECT notified_at IS NOT NULL FROM ai.digests WHERE user_id=$1 AND for_date=$2", user, for_date
+            )
+        )

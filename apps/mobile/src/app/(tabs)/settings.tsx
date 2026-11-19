@@ -122,6 +122,11 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        <Section title={t("settings.notifications")}>
+          <ListRow testID="alerts-manage" title={t("alerts.manage")} description={t("settings.alertsDesc")} onPress={() => router.push("/alerts")} trailing={<Text muted>›</Text>} />
+          {user?.consents?.push ? null : <Text variant="caption" muted>{t("settings.pushOff")}</Text>}
+        </Section>
+
         <Section title={t("settings.privacy")}>
           <ListRow testID="biometric" title={t("settings.biometric")} description={t("settings.biometricDesc")} value={biometric} onValueChange={toggleBiometric} />
           <ConsentList decisions={decisions} onChange={changeConsent} />

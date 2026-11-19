@@ -9,9 +9,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { queryClient } from "@/data/queryClient";
 import { LockOverlay } from "@/features/auth/LockOverlay";
 import { useSession } from "@/features/auth/session";
+import { usePush } from "@/features/push/register";
 import { useTheme } from "@/ui/theme";
 
 void SplashScreen.preventAutoHideAsync();
+
+function PushBridge() {
+  const allowed = useSession((s) => s.status === "signedIn" && s.user?.consents?.push === true);
+  usePush(allowed);
+  return null;
+}
 
 export default function RootLayout() {
   const status = useSession((s) => s.status);
@@ -46,10 +53,13 @@ export default function RootLayout() {
               <Stack.Screen name="portfolio/txn" options={{ presentation: "modal" }} />
               <Stack.Screen name="portfolio/import" options={{ presentation: "modal" }} />
               <Stack.Screen name="copilot-history" options={{ presentation: "modal" }} />
+              <Stack.Screen name="alerts" options={{ presentation: "modal" }} />
+              <Stack.Screen name="digest/[date]" />
             </Stack.Protected>
             <Stack.Screen name="privacy" options={{ presentation: "modal" }} />
           </Stack>
           {status === "signedIn" ? <LockOverlay /> : null}
+          <PushBridge />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -6,6 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, useWindowDimensions, View } 
 import { api } from "@/data/api";
 import { prefs } from "@/data/storage";
 import { CandleChart, type OverlayToggles } from "@/features/chart/CandleChart";
+import { AlertsPanel } from "@/features/alerts/AlertsPanel";
 import { DepthPanel } from "@/features/chart/DepthPanel";
 import { TIMEFRAMES, type Timeframe } from "@/features/chart/candles";
 import { useCandles } from "@/features/chart/useCandles";
@@ -132,6 +133,7 @@ export default function InstrumentScreen() {
         )}
 
         <DepthPanel symbol={symbol} />
+        <AlertsPanel symbol={symbol} ltp={quote?.ltp} />
       </ScrollView>
     </Screen>
   );

@@ -34,6 +34,8 @@ class MeController {
 
 	record UpdateMe(@Size(max = 80) String name, @Pattern(regexp = "^(en|hi)$") String locale) {}
 
+	record UnregisterDevice(@NotBlank @Size(max = 200) String expoPushToken) {}
+
 	record RegisterDevice(@NotBlank @Size(max = 200) String expoPushToken, @Pattern(regexp = "^(android|ios)$") String platform) {}
 
 	private final UserRepository users;
@@ -80,6 +82,14 @@ class MeController {
 				INSERT INTO devices (user_id, expo_push_token, platform) VALUES (?, ?, ?)
 				ON CONFLICT (user_id, expo_push_token) DO UPDATE SET last_seen_at = now()""")
 				.params(CurrentUser.id(), body.expoPushToken(), body.platform())
+				.update();
+	}
+
+	@PostMapping("/devices/unregister")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void unregisterDevice(@Valid @RequestBody UnregisterDevice body) {
+		jdbc.sql("DELETE FROM devices WHERE user_id = ? AND expo_push_token = ?")
+				.params(CurrentUser.id(), body.expoPushToken())
 				.update();
 	}
 

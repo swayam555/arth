@@ -137,6 +137,43 @@ services:
       api: { condition: service_healthy }
     mem_limit: 192m
 
+  alert-engine:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: infra/node-service.Dockerfile
+      args: { SERVICE: alert-engine, EXTERNALS: "@platformatic/kafka" }
+    image: arth/alert-engine:dev
+    profiles: [realtime, ai, obs]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://arth:arth@postgres:5432/arth
+      COOLDOWN_SEC: ${ALERT_COOLDOWN_SEC:-900}
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_healthy }
+    mem_limit: 160m
+
+  notifier:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: infra/node-service.Dockerfile
+      args: { SERVICE: notifier, EXTERNALS: "@platformatic/kafka" }
+    image: arth/notifier:dev
+    profiles: [realtime, ai, obs]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      DATABASE_URL: postgres://arth:arth@postgres:5432/arth
+      PUSH_SENDER: ${PUSH_SENDER:-log}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+    depends_on:
+      kafka: { condition: service_healthy }
+      api: { condition: service_healthy }
+    mem_limit: 128m
+
   stream-gateway:
     <<: *restart
     build:
@@ -175,9 +212,12 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       NEWS_FEED_URLS: ${NEWS_FEED_URLS:-}
+      KAFKA_BROKERS: kafka:9092
+      DIGEST_SCHEDULER: ${DIGEST_SCHEDULER:-on}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
       api: { condition: service_healthy }
     mem_limit: 384m
     healthcheck:
@@ -206,6 +246,7 @@ services:
     ports: ["7080:80", "7443:443"]
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/well-known:/etc/nginx/static/.well-known:ro
       - certs:/etc/nginx/certs:ro
     depends_on:
       certs: { condition: service_completed_successfully }

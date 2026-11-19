@@ -105,3 +105,13 @@ export async function transcribe(uri: string, language: "en" | "hi"): Promise<st
   const res = await authed(plain, "/v1/ai/transcribe", { method: "POST", body: form });
   return ((await res.json()) as { text: string }).text;
 }
+
+/** GET against the AI service (routed by nginx on the same origin); a 404 resolves to null. */
+export async function aiGet<T>(path: string): Promise<T | null> {
+  try {
+    return (await (await authed(plain, path)).json()) as T;
+  } catch (e) {
+    if (e instanceof CopilotError && e.status === 404) return null;
+    throw e;
+  }
+}

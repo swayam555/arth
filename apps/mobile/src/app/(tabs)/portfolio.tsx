@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { DigestCard } from "@/features/digest/DigestCard";
 import { formatPct, formatPrice } from "@/features/market/format";
 import { useWatchSymbols } from "@/features/market/hooks";
 import { StatusPill } from "@/features/market/StatusPill";
@@ -88,6 +89,7 @@ export default function PortfolioScreen() {
         ) : (
           <>
             <SummaryCard summary={summary} colors={colors} />
+            <DigestCard />
             {actions}
 
             <Card colors={colors} title={t("portfolio.allocation")}>

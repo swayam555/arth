@@ -54,3 +54,9 @@ export const tickChannel = (symbol: string) => `tick:${symbol}`;
 export const ltpKey = (symbol: string) => `ltp:${symbol}`;
 export const TOPIC_TICKS_RAW = "ticks.raw";
 export const TOPIC_CANDLES_1M = "candles.1m";
+export const TOPIC_ALERTS_FIRED = "alerts.fired";
+export const TOPIC_DIGEST_READY = "digest.ready";
+export const TOPIC_NOTIFICATIONS_DLQ = "notifications.dlq";
+export const TOPIC_USER_DELETED = "user.deleted";
+/** Redis pub/sub channel the api publishes an alert id on after any create/update/delete. */
+export const CHANNEL_ALERTS_CHANGED = "alerts:changed";

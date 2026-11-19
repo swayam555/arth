@@ -40,6 +40,11 @@
               "scheme": "https",
               "host": "arth.app",
               "pathPrefix": "/instrument"
+            },
+            {
+              "scheme": "https",
+              "host": "arth.app",
+              "pathPrefix": "/digest"
             }
           ],
           "category": [
@@ -75,6 +80,13 @@
         {
           "microphonePermission": "Arth uses the microphone only while you dictate a question to the copilot.",
           "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0B0F14",
+          "defaultChannel": "alerts"
         }
       ]
     ],

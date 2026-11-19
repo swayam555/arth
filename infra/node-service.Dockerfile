@@ -12,6 +12,8 @@ COPY packages packages
 COPY services/feed-simulator/package.json services/feed-simulator/package.json
 COPY services/tick-aggregator/package.json services/tick-aggregator/package.json
 COPY services/stream-gateway/package.json services/stream-gateway/package.json
+COPY services/alert-engine/package.json services/alert-engine/package.json
+COPY services/notifier/package.json services/notifier/package.json
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@arth/${SERVICE}..."
 COPY services/${SERVICE} services/${SERVICE}

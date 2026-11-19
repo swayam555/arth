@@ -44,6 +44,9 @@ class Settings:
     )
     news_poll_s: int = field(default_factory=lambda: _int("NEWS_POLL_S", 900))
     backend: str = field(default_factory=lambda: _env("AI_BACKEND", "pg"))
+    kafka_brokers: str = field(default_factory=lambda: _env("KAFKA_BROKERS"))
+    consent_version: str = field(default_factory=lambda: _env("CONSENT_VERSION", "2026-11"))
+    digest_scheduler: bool = field(default_factory=lambda: _env("DIGEST_SCHEDULER", "on") != "off")
 
     @property
     def has_anthropic_key(self) -> bool:
