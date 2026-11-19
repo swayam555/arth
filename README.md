@@ -88,7 +88,7 @@ Not yet measured: cold start, scroll and chart FPS, the memory soak and k6. The 
 
 ## Run it
 
-Prerequisites: Node ≥ 22, pnpm, Java 21, uv, Docker. Android Studio is needed for the app.
+Prerequisites: Node ≥ 22, pnpm, Java 21, uv, Docker. Android Studio is needed for the app. **Keys and env files (including the AI keys) are listed in [`SETUP.md`](SETUP.md); all are optional.**
 
 ```sh
 pnpm install && pnpm build
