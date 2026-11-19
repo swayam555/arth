@@ -1,6 +1,7 @@
 package in.arth.api.auth;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import in.arth.api.market.WatchlistService;
 import in.arth.api.user.ConsentService;
 import in.arth.api.user.UserRepository;
 import jakarta.validation.Valid;
@@ -40,12 +41,14 @@ class AuthController {
 	private final TokenService tokens;
 	private final UserRepository users;
 	private final ConsentService consents;
+	private final WatchlistService watchlists;
 
-	AuthController(OtpService otp, TokenService tokens, UserRepository users, ConsentService consents) {
+	AuthController(OtpService otp, TokenService tokens, UserRepository users, ConsentService consents, WatchlistService watchlists) {
 		this.otp = otp;
 		this.tokens = tokens;
 		this.users = users;
 		this.consents = consents;
+		this.watchlists = watchlists;
 	}
 
 	@PostMapping("/otp/request")
@@ -60,6 +63,9 @@ class AuthController {
 		otp.verify(body.phone(), body.code());
 		UserRepository.Upserted result = users.upsertByPhone(body.phone());
 		UserRepository.User user = result.user();
+		if (result.created()) {
+			watchlists.createDefault(user.id());
+		}
 		TokenService.Tokens issued = tokens.issue(user.id());
 		return new Session(issued.accessToken(), issued.refreshToken(), issued.expiresInSeconds(),
 				new SessionUser(user.id(), user.phone(), user.name(), user.locale(), result.created(), consents.current(user.id())));

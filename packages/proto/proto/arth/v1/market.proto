@@ -22,6 +22,9 @@ message Tick {
   // Per-symbol sequence from the source; lets consumers drop duplicates after a rebalance.
   int64 seq = 7;
   double prev_close = 8;
+  double open = 9;
+  double high = 10;
+  double low = 11;
 }
 
 // Published to candles.1m when a bucket closes, keyed by symbol.

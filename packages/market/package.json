@@ -1,0 +1,26 @@
+{
+  "name": "@arth/market",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "seed-sql": "tsc -p tsconfig.json && node scripts/seed-sql.mjs ../../services/api/src/main/resources/db/migration/V3__instruments_seed.sql"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "^5.1.1",
+    "msgpackr": "^2.1.4",
+    "@types/node": "^24.19.2"
+  }
+}

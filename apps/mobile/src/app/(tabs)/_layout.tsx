@@ -1,10 +1,12 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useTranslation } from "react-i18next";
+import { useMarketStream } from "@/features/market/hooks";
 import { useTheme } from "@/ui/theme";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  useMarketStream();
   return (
     <NativeTabs backgroundColor={colors.surface} tintColor={colors.accent} iconColor={colors.textMuted} labelStyle={{ color: colors.textMuted }}>
       <NativeTabs.Trigger name="index">

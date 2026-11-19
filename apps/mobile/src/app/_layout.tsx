@@ -38,6 +38,9 @@ export default function RootLayout() {
             </Stack.Protected>
             <Stack.Protected guard={status === "signedIn"}>
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="search" options={{ presentation: "modal" }} />
+              <Stack.Screen name="watchlists" options={{ presentation: "modal" }} />
+              <Stack.Screen name="watchlist/[id]" options={{ presentation: "modal" }} />
             </Stack.Protected>
             <Stack.Screen name="privacy" options={{ presentation: "modal" }} />
           </Stack>

@@ -14,3 +14,4 @@ allowBuilds:
   '@swc/core': true
   esbuild: true
   '@bufbuild/buf': true
+  msgpackr-extract: true

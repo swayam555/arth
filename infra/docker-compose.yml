@@ -92,6 +92,60 @@ services:
       start_period: 60s
       retries: 12
 
+  feed-simulator:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: infra/node-service.Dockerfile
+      args: { SERVICE: feed-simulator, EXTERNALS: "@platformatic/kafka" }
+    image: arth/feed-simulator:dev
+    profiles: [realtime, ai, obs]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      TICK_RATE: ${TICK_RATE:-2500}
+    depends_on:
+      kafka: { condition: service_healthy }
+    mem_limit: 160m
+
+  tick-aggregator:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: infra/node-service.Dockerfile
+      args: { SERVICE: tick-aggregator, EXTERNALS: "@platformatic/kafka" }
+    image: arth/tick-aggregator:dev
+    profiles: [realtime, ai, obs]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://arth:arth@postgres:5432/arth
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_healthy }
+    mem_limit: 192m
+
+  stream-gateway:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: infra/node-service.Dockerfile
+      args: { SERVICE: stream-gateway, EXTERNALS: "uWebSockets.js" }
+    image: arth/stream-gateway:dev
+    profiles: [realtime, ai, obs]
+    environment:
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    ports: ["7090:7090"]
+    depends_on:
+      redis: { condition: service_healthy }
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:7090/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   certs:
     image: alpine/openssl:3.5.9
     profiles: [core, realtime, ai, obs]

@@ -56,8 +56,8 @@ flowchart LR
 | Service | Stack | Responsibility |
 |---|---|---|
 | feed-simulator | Node 24 / TS | GBM with intraday U-shaped volatility, volume bursts, NSE hours 09:15–15:30 IST (with a `--always-open` dev flag), circuit limits (5/10/20%), 2,000+ symbols, configurable ticks/s. `MarketDataSource` interface; `SimulatedSource` + `BrokerSourceStub` (Upstox/Kite-shaped). |
-| tick-aggregator | Node / TS (kafkajs) | Consume `ticks.raw` (key = symbol). Maintain 1m OHLCV in memory, write `ltp:{sym}` / `depth:{sym}` hashes, publish `tick:{sym}`, batch-insert closed candles into Timescale, emit `candles.1m`. |
-| stream-gateway | Node + uWebSockets.js | WS server. Per-connection subscription set; Redis pub/sub fan-out (pattern-free, ref-counted channel subs per instance); 250 ms conflation; backpressure (drop-to-latest when buffered > 64 KB); per-connection `seq`; snapshot on subscribe/resync. Stateless → horizontally scalable. |
+| tick-aggregator | Node / TS (@platformatic/kafka) | Consume `ticks.raw` (key = symbol). Maintain 1m OHLCV in memory, write `ltp:{sym}` / `depth:{sym}` hashes, publish `tick:{sym}`, batch-insert closed candles into Timescale, emit `candles.1m`. |
+| stream-gateway | Node + uWebSockets.js | WS server. Per-connection subscription set; Redis pub/sub fan-out (pattern-free, ref-counted channel subs per instance); 250 ms conflation; backpressure (skip the flush while buffered > 64 KB, keep only the latest value, close with 4008 after 20 s stuck); per-connection `seq`; snapshot on subscribe/resync. Stateless → horizontally scalable. |
 | api-service | Spring Boot 4.1, Java 21, Flyway | OTP auth, JWT access + rotating refresh (reuse detection), users/devices, watchlists, instruments search, portfolio (CAS PDF / CSV / manual), XIRR, alerts CRUD, cursor-paginated candle history, Redis token-bucket rate limit, idempotency keys, DPDP consent/export/delete, springdoc OpenAPI. |
 | alert-engine | Node / TS | Alerts indexed per symbol in Redis (sorted sets on threshold); evaluate on ticks; dedupe (fire-once + cooldown key); emit `alerts.fired`. |
 | notifier | Node / TS | Consume `alerts.fired` + `digest.ready`; send via Expo Push (FCM/APNs under the hood); exponential retry; DLQ `notifications.dlq`. |
@@ -73,19 +73,27 @@ flowchart LR
 2. Aggregator updates candle + Redis hash, `PUBLISH tick:RELIANCE <msgpack>`.
 3. Each gateway instance subscribed to that channel (because ≥1 of its clients subscribed) puts the tick into each interested connection's conflation map (overwrite).
 4. Every 250 ms the gateway flushes one binary `DELTA` frame per connection (skipped if the socket is backpressured; the map keeps only the latest).
-5. App: WS `onmessage` → raw `ArrayBuffer` handed to a **worklet runtime** → MessagePack decode + merge into a batch → every 100–250 ms one batch crosses to JS → `tickStore.applyBatch()`.
-6. Only rows whose symbol changed re-render (per-symbol selector); flash animation runs on the UI thread via a Reanimated shared value.
-7. Perf mark `tick→paint` = server `ts` vs `onLayout`/commit timestamp, sampled.
+5. App: WS `onmessage` → `ArrayBuffer` → `decodeMsgpack` from `@arth/market` (dependency-free, worklet-safe) → index→symbol mapping → one `tickStore.apply()` per frame, i.e. at most 4 store writes/s at the default rate.
+6. Only rows whose symbol changed re-render (per-symbol selector; untouched quotes keep object identity); the flash runs on the UI thread via a Reanimated shared value and is skipped under Reduce Motion.
+7. Latency is measured per frame as client receive time minus the newest row's source `ts` (`stream.stats.lastLatencyMs`).
+
+**Decision — decode on the JS thread (for now):** a 50-row delta frame (1.2 KB) decodes in ~17 µs (Jest/Node, `decoder.test.ts`), and frames arrive every 250 ms. Moving that to a worklet runtime would add a thread hop per frame to save well under 0.1 % of the JS frame budget. The decoder has no dependencies so it can move to a worklet if the emulator trace ever shows otherwise.
 
 ## 4. Wire protocol (app ⇄ stream-gateway)
 
-- Client → server: small JSON text frames: `{op:"sub",symbols:[…]}`, `{op:"unsub",symbols:[…]}`, `{op:"resync"}`, `{op:"ping"}`, `{op:"rate",ms:1000}` (slow networks).
-- Server → client: binary MessagePack array `[type, seq, payload]`
-  - `0 SNAPSHOT` — `{SYM: [ltp, prevClose, high, low, volume, bids[5][2], asks[5][2]]}`
-  - `1 DELTA` — `[[symIdx, ltp, volume, high, low, tsMs], …]` (`symIdx` assigned per connection in the `SUB_ACK` → tiny frames)
-  - `2 SUB_ACK` — `{SYM: symIdx}`; `3 DEPTH` — `{symIdx: [bids, asks]}` (only for symbols in "depth" mode, i.e. the open instrument screen); `4 PONG`; `5 ERROR`.
-- `seq` is per connection, monotonically increasing. A gap (`seq ≠ last + 1`) → client sends `resync` → server sends `SNAPSHOT` for current subs and resets `seq`.
-- Reconnect: client resends its full desired subscription set; server replies `SUB_ACK` + `SNAPSHOT`.
+Types live in `packages/market/src/wire.ts` and are shared by the gateway, the load test and the app.
+
+- Auth: WebSocket subprotocols `["arth.v1", "bearer.<accessJWT>"]` (browsers and RN cannot set headers on the upgrade). Rejections are plain HTTP: 401 (missing or invalid token), 429 (more than 3 sockets per user), 503 (draining).
+- Client → server: small JSON text frames: `{op:"sub",symbols:[…],depth?:"SYM"}`, `{op:"unsub",symbols:[…]}`, `{op:"resync"}`, `{op:"ping",t}`, `{op:"rate",ms}` (clamped to 100–2,000 ms). At most 250 subscriptions per socket; floods are rate-limited and then closed with 4029.
+- Server → client: binary MessagePack `[type, seq, payload]`
+  - `0 SNAPSHOT`: `[[idx, ltp, volume, high, low, tsMs, prevClose, open], …]`
+  - `1 DELTA`: `[[idx, ltp, volume, high, low, tsMs], …]`, one row per changed symbol per flush.
+  - `2 SUB_ACK`: `{SYM: idx}`. Indexes are per connection, which keeps delta rows small.
+  - `3 DEPTH`: `[idx, bids[5][2], asks[5][2], tsMs]`, only for the one symbol in depth mode.
+  - `4 PONG`: echoes `t`.
+  - `5 ERROR`: `{code, message}`.
+- `seq` is per connection and contiguous. On a gap the client sends `resync` and the server replies with a full `SNAPSHOT`.
+- Reconnect: backoff with equal jitter (500 ms × 2ⁿ, capped at 30 s). The token is refreshed first if it expires within 30 s, or if the last upgrade failed with 401. The client then resends its full desired set and gets `SUB_ACK` + `SNAPSHOT`. A socket that has been silent for 45 s despite 20 s pings is treated as dead.
 
 ## 5. Kafka topics (Protobuf, versioned `.proto` in `packages/proto`)
 
@@ -171,24 +179,29 @@ Schema ownership: api-service owns `public` (Flyway); ai-service owns schema `ai
 ## 9. Mobile app
 
 ```
-apps/mobile/
-  app/                       Expo Router (typed routes)
-    (auth)/  phone, otp, consent
-    (tabs)/  watchlist, explore, portfolio, copilot, alerts
-    instrument/[symbol].tsx  digest/[date].tsx  settings/…
-  src/
-    realtime/   socket.ts (backoff+jitter, heartbeat, AppState + NetInfo aware)
-                decoder.worklet.ts (MessagePack decode + batching on a worklet runtime)
-                tickStore.ts (zustand + subscribeWithSelector, per-symbol slices)
-                viewportSubscriptions.ts (viewability diff, buffer, debounce)
-    charts/     CandleChart (Skia), viewport/culling, path cache, gestures, indicators (SMA/EMA/RSI/VWAP)
-    features/   auth · watchlist · explore · instrument · portfolio · copilot · alerts · digest
-    data/       api client, TanStack Query (persisted to MMKV), SQLite (candles, chat history)
-    ui/         theme (dark/light, dynamic type), a11y price labels, i18n (en, hi)
-    observability/ Sentry, perf marks
+apps/mobile/src/
+  app/          Expo Router (typed routes): (auth)/ consent (tabs)/{index,settings} search watchlists watchlist/[id] privacy
+  features/
+    market/     streamClient.ts (socket state machine, transport-agnostic, unit-tested with a fake socket)
+                stream.ts (app singleton) · hooks.ts (AppState/NetInfo wiring, viewport subscriptions)
+                decoder.ts · tickStore.ts (zustand, per-symbol selectors) · QuoteRow · StatusPill · format.ts
+    watchlists/ queries.ts (TanStack Query, optimistic mutations with rollback)
+    auth/ consent/ settings/
+  data/         api client (openapi-fetch + single-flight refresh), queryClient, MMKV prefs
+  ui/           theme (dark/light), Text, Button, Chip, IconButton, TextField, ListRow, Screen
+  i18n/         en, hi
 ```
 
+Watchlist reordering uses up/down buttons instead of drag-and-drop. They work with TalkBack and Switch Access without a separate accessible path, and the server contract (`PUT /v1/watchlists/{id}/items` with the full ordered list) is the same either way.
+
 Key guarantees: rows are `memo` components reading only their symbol's slice; `renderItem`/`keyExtractor`/`getItemType` are stable module-level functions; no tick ever touches React state above the row. Chart drawing and crosshair are Skia + Reanimated derived values on the UI thread; only visible candles (+1 screen of overscan) are turned into paths, cached per (timeframe, viewport window).
+
+## 9a. Realtime services: build and runtime notes
+
+- Kafka client: `@platformatic/kafka`, not kafkajs. kafkajs is unmaintained and has no lz4 codec; `@platformatic/kafka` is maintained, typed, and supports lz4 natively.
+- uWebSockets.js v20.71 ships an ESM wrapper that points at a missing file, so the gateway loads the CJS entry through `createRequire`.
+- uWS needs glibc ≥ 2.38, so the Node service image uses `node:24-trixie-slim` (`infra/node-service.Dockerfile`).
+- Services are bundled with esbuild. Native or optional-dependency packages (uWS, `@platformatic/kafka` and its codecs) are left external, and `infra/scripts/copy-externals.mjs` copies their dependency closure into the image.
 
 ## 10. Security
 

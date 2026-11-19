@@ -7,3 +7,4 @@
 apps/mobile
 .git
 docs
+!apps/mobile/package.json

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 class UserDataExporter {
 
-	private static final List<String> USER_TABLES = List.of("devices", "consents");
+	private static final List<String> USER_TABLES = List.of("devices", "consents", "watchlists");
 
 	private final JdbcClient jdbc;
 
@@ -26,6 +26,9 @@ class UserDataExporter {
 		for (String table : USER_TABLES) {
 			out.put(table, jdbc.sql("SELECT * FROM " + table + " WHERE user_id = ?").param(userId).query().listOfRows());
 		}
+		out.put("watchlist_items", jdbc.sql("""
+				SELECT wi.* FROM watchlist_items wi JOIN watchlists w ON w.id = wi.watchlist_id
+				WHERE w.user_id = ? ORDER BY wi.watchlist_id, wi.position""").param(userId).query().listOfRows());
 		return out;
 	}
 }
