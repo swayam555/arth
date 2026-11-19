@@ -114,3 +114,7 @@ Tests:
 - [Build plan](docs/PLAN.md) · [Changelog](docs/CHANGELOG.md) · [Progress](PROGRESS.md)
 - [Interview notes: 10 hardest decisions](docs/INTERVIEW_NOTES.md) · [Resume bullets](docs/RESUME_BULLETS.md)
 - [Privacy policy and DPDP notice](docs/legal/PRIVACY_POLICY.md) · [Release kit: EAS, Play checklist, listing, demo script](docs/release/RELEASE.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
